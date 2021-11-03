@@ -11582,6 +11582,18 @@ ones added by default.</p>
 </tr>
 <tr>
 <td>
+<code>additionalASGTags</code><br/>
+<em>
+Cluster API AWS api/v1alpha4.Tags
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AdditionalASGTags is an optional set of tags to add to the underlying ASG resources managed by the AWS provider</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>roleName</code><br/>
 <em>
 string
@@ -11812,6 +11824,18 @@ Cluster API AWS api/v1alpha4.Tags
 <em>(Optional)</em>
 <p>AdditionalTags is an optional set of tags to add to AWS resources managed by the AWS provider, in addition to the
 ones added by default.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>additionalASGTags</code><br/>
+<em>
+Cluster API AWS api/v1alpha4.Tags
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AdditionalASGTags is an optional set of tags to add to the underlying ASG resources managed by the AWS provider</p>
 </td>
 </tr>
 <tr>
@@ -18420,6 +18444,18 @@ ones added by default.</p>
 </tr>
 <tr>
 <td>
+<code>additionalASGTags</code><br/>
+<em>
+Cluster API AWS api/v1beta1.Tags
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AdditionalASGTags is an optional set of tags to add to the underlying ASG resources managed by the AWS provider</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>roleAdditionalPolicies</code><br/>
 <em>
 []string
@@ -18664,6 +18700,18 @@ Cluster API AWS api/v1beta1.Tags
 <em>(Optional)</em>
 <p>AdditionalTags is an optional set of tags to add to AWS resources managed by the AWS provider, in addition to the
 ones added by default.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>additionalASGTags</code><br/>
+<em>
+Cluster API AWS api/v1beta1.Tags
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AdditionalASGTags is an optional set of tags to add to the underlying ASG resources managed by the AWS provider</p>
 </td>
 </tr>
 <tr>

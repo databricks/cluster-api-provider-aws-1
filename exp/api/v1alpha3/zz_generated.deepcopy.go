@@ -474,6 +474,13 @@ func (in *AWSManagedMachinePoolSpec) DeepCopyInto(out *AWSManagedMachinePoolSpec
 			(*out)[key] = val
 		}
 	}
+	if in.AdditionalASGTags != nil {
+		in, out := &in.AdditionalASGTags, &out.AdditionalASGTags
+		*out = make(apiv1alpha3.Tags, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.AMIVersion != nil {
 		in, out := &in.AMIVersion, &out.AMIVersion
 		*out = new(string)

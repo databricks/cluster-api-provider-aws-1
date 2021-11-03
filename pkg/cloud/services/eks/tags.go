@@ -18,10 +18,13 @@ package eks
 
 import (
 	"fmt"
+	"k8s.io/utils/pointer"
 
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/eks/eksiface"
+	"github.com/pkg/errors"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/converters"
@@ -68,9 +71,101 @@ func getTagUpdates(currentTags map[string]string, tags map[string]string) (untag
 	return untagKeys, newTags
 }
 
+func getASGTagUpdates(clusterName string, currentTags map[string]string, tags map[string]string) (tagsToDelete map[string]string, tagsToAdd map[string]string) {
+	officialASGTagsByEKS := []string{
+		"eks:cluster-name",
+		"eks:nodegroup-name",
+		fmt.Sprintf("k8s.io/cluster-autoscaler/%s", clusterName),
+		"k8s.io/cluster-autoscaler/enabled",
+		fmt.Sprintf("kubernetes.io/cluster/%s", clusterName),
+	}
+	tagsToDelete = make(map[string]string)
+	tagsToAdd = make(map[string]string)
+	for k, v := range currentTags {
+		if _, ok := tags[k]; !ok {
+			isOfficialTag := false
+			for _, tag := range officialASGTagsByEKS {
+				if tag == k {
+					isOfficialTag = true
+					break
+				}
+			}
+			if !isOfficialTag {
+				tagsToDelete[k] = v
+			}
+		}
+	}
+	for key, value := range tags {
+		if currentV, ok := currentTags[key]; !ok || value != currentV {
+			tagsToAdd[key] = value
+		}
+	}
+	return tagsToDelete, tagsToAdd
+}
+
 func (s *NodegroupService) reconcileTags(ng *eks.Nodegroup) error {
 	tags := ngTags(s.scope.ClusterName(), s.scope.AdditionalTags())
 	return updateTags(s.EKSClient, ng.NodegroupArn, aws.StringValueMap(ng.Tags), tags)
+}
+
+func tagDescriptionsToMap(input []*autoscaling.TagDescription) map[string]string {
+	tags := make(map[string]string)
+	for _, v := range input {
+		tags[*v.Key] = *v.Value
+	}
+	return tags
+}
+
+func (s *NodegroupService) reconcileASGTags(ng *eks.Nodegroup) error {
+	s.scope.Info("Reconciling ASG tags", "cluster-name", s.scope.ClusterName(), "nodegroup-name", *ng.NodegroupName)
+	asg, err := s.describeASGs(ng)
+	if err != nil {
+		return errors.Wrap(err, "failed to describe ASG for nodegroup")
+	}
+
+	tagsToDelete, tagsToAdd := getASGTagUpdates(s.scope.ClusterName(), tagDescriptionsToMap(asg.Tags), s.scope.AdditionalASGTags())
+	s.scope.V(2).Info("Tags", "tagsToAdd", tagsToAdd, "tagsToDelete", tagsToDelete)
+
+	if len(tagsToAdd) > 0 {
+		input := &autoscaling.CreateOrUpdateTagsInput{}
+		for k, v := range tagsToAdd {
+			// The k/vCopy is used to address the "Implicit memory aliasing in for loop" issue
+			// https://stackoverflow.com/questions/62446118/implicit-memory-aliasing-in-for-loop
+			kCopy := k
+			vCopy := v
+			input.Tags = append(input.Tags, &autoscaling.Tag{
+				Key:               &kCopy,
+				PropagateAtLaunch: aws.Bool(true),
+				ResourceId:        asg.AutoScalingGroupName,
+				ResourceType:      pointer.String("auto-scaling-group"),
+				Value:             &vCopy,
+			})
+		}
+		_, err = s.AutoscalingClient.CreateOrUpdateTags(input)
+		if err != nil {
+			return errors.Wrap(err, "failed to add tags to nodegroup's AutoScalingGroup")
+		}
+	}
+
+	if len(tagsToDelete) > 0 {
+		input := &autoscaling.DeleteTagsInput{}
+		for k := range tagsToDelete {
+			// The k/vCopy is used to address the "Implicit memory aliasing in for loop" issue
+			// https://stackoverflow.com/questions/62446118/implicit-memory-aliasing-in-for-loop
+			kCopy := k
+			input.Tags = append(input.Tags, &autoscaling.Tag{
+				Key:               &kCopy,
+				ResourceId:        asg.AutoScalingGroupName,
+				ResourceType:      pointer.String("auto-scaling-group"),
+			})
+		}
+		_, err = s.AutoscalingClient.DeleteTags(input)
+		if err != nil {
+			return errors.Wrap(err, "failed to delete tags to nodegroup's AutoScalingGroup")
+		}
+	}
+
+	return nil
 }
 
 func (s *FargateService) reconcileTags(fp *eks.FargateProfile) error {

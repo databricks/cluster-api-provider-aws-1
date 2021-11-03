@@ -165,6 +165,16 @@ func (s *ManagedMachinePoolScope) AdditionalTags() infrav1.Tags {
 	return s.ManagedMachinePool.Spec.AdditionalTags.DeepCopy()
 }
 
+// AdditionalASGTags returns AdditionalASGTags from the scope's ManagedMachinePool
+// The returned value will never be nil.
+func (s *ManagedMachinePoolScope) AdditionalASGTags() infrav1.Tags {
+	if s.ManagedMachinePool.Spec.AdditionalASGTags == nil {
+		s.ManagedMachinePool.Spec.AdditionalASGTags = infrav1.Tags{}
+	}
+
+	return s.ManagedMachinePool.Spec.AdditionalASGTags.DeepCopy()
+}
+
 // RoleName returns the node group role name.
 func (s *ManagedMachinePoolScope) RoleName() string {
 	return s.ManagedMachinePool.Spec.RoleName

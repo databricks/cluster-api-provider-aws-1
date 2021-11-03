@@ -18,6 +18,7 @@ package eks
 
 import (
 	"fmt"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -62,6 +63,34 @@ func (s *NodegroupService) describeNodegroup() (*eks.Nodegroup, error) {
 	}
 
 	return out.Nodegroup, nil
+}
+
+func (s *NodegroupService) describeASGs(ng *eks.Nodegroup) (*autoscaling.Group, error) {
+	eksClusterName := s.scope.KubernetesClusterName()
+	nodegroupName := s.scope.NodegroupName()
+	s.scope.V(2).Info("describing node group ASG", "cluster", eksClusterName, "nodegroup", nodegroupName)
+
+	if len(ng.Resources.AutoScalingGroups) == 0 {
+		return nil, nil
+	}
+
+	input := &autoscaling.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: []*string{
+			ng.Resources.AutoScalingGroups[0].Name,
+		},
+	}
+
+	out, err := s.AutoscalingClient.DescribeAutoScalingGroups(input)
+	switch {
+	case awserrors.IsNotFound(err):
+		return nil, nil
+	case err != nil:
+		return nil, errors.Wrap(err, "failed to describe ASGs")
+	case len(out.AutoScalingGroups) == 0:
+		return nil, errors.Wrap(err, "no ASG found")
+	}
+
+	return out.AutoScalingGroups[0], nil
 }
 
 func (s *NodegroupService) scalingConfig() *eks.NodegroupScalingConfig {
@@ -484,6 +513,10 @@ func (s *NodegroupService) reconcileNodegroup() error {
 
 	if err := s.reconcileTags(ng); err != nil {
 		return errors.Wrapf(err, "failed to reconcile nodegroup tags")
+	}
+
+	if err := s.reconcileASGTags(ng); err != nil {
+		return errors.Wrapf(err, "failed to reconcile asg tags")
 	}
 
 	return nil

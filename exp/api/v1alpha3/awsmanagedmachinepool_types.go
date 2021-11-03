@@ -73,6 +73,10 @@ type AWSManagedMachinePoolSpec struct {
 	// +optional
 	AdditionalTags infrav1alpha3.Tags `json:"additionalTags,omitempty"`
 
+	// AdditionalASGTags is an optional set of tags to add to the underlying ASG (auto scaling group) resources managed by the AWS provider
+	// +optional
+	AdditionalASGTags infrav1alpha3.Tags `json:"additionalASGTags,omitempty"`
+
 	// RoleName specifies the name of IAM role for the node group.
 	// If the role is pre-existing we will treat it as unmanaged
 	// and not delete it on deletion. If the EKSEnableIAM feature

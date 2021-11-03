@@ -377,6 +377,13 @@ func (in *AWSManagedMachinePoolSpec) DeepCopyInto(out *AWSManagedMachinePoolSpec
 			(*out)[key] = val
 		}
 	}
+	if in.AdditionalASGTags != nil {
+		in, out := &in.AdditionalASGTags, &out.AdditionalASGTags
+		*out = make(apiv1beta1.Tags, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.RoleAdditionalPolicies != nil {
 		in, out := &in.RoleAdditionalPolicies, &out.RoleAdditionalPolicies
 		*out = make([]string, len(*in))

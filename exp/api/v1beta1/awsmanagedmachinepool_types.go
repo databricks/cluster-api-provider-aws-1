@@ -83,6 +83,10 @@ type AWSManagedMachinePoolSpec struct {
 	// +optional
 	AdditionalTags infrav1.Tags `json:"additionalTags,omitempty"`
 
+	// AdditionalASGTags is an optional set of tags to add to the underlying ASG (auto scaling group) resources managed by the AWS provider
+	// +optional
+	AdditionalASGTags infrav1.Tags `json:"additionalASGTags,omitempty"`
+
 	// RoleAdditionalPolicies allows you to attach additional polices to
 	// the node group role. You must enable the EKSAllowAddRoles
 	// feature flag to incorporate these into the created role.

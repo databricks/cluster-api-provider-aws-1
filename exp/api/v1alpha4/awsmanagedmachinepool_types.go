@@ -18,7 +18,6 @@ package v1alpha4
 
 import (
 	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	infrav1alpha4 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha4"
@@ -82,6 +81,10 @@ type AWSManagedMachinePoolSpec struct {
 	// ones added by default.
 	// +optional
 	AdditionalTags infrav1alpha4.Tags `json:"additionalTags,omitempty"`
+
+	// AdditionalASGTags is an optional set of tags to add to the underlying ASG (auto scaling group) resources managed by the AWS provider
+	// +optional
+	AdditionalASGTags infrav1alpha4.Tags `json:"additionalASGTags,omitempty"`
 
 	// RoleName specifies the name of IAM role for the node group.
 	// If the role is pre-existing we will treat it as unmanaged

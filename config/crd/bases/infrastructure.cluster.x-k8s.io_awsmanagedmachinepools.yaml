@@ -50,6 +50,12 @@ spec:
           spec:
             description: AWSManagedMachinePoolSpec defines the desired state of AWSManagedMachinePool
             properties:
+              additionalASGTags:
+                additionalProperties:
+                  type: string
+                description: AdditionalASGTags is an optional set of tags to add to
+                  the underlying ASG resources managed by the AWS provider
+                type: object
               additionalTags:
                 additionalProperties:
                   type: string
@@ -272,6 +278,12 @@ spec:
           spec:
             description: AWSManagedMachinePoolSpec defines the desired state of AWSManagedMachinePool
             properties:
+              additionalASGTags:
+                additionalProperties:
+                  type: string
+                description: AdditionalASGTags is an optional set of tags to add to
+                  the underlying ASG resources managed by the AWS provider
+                type: object
               additionalTags:
                 additionalProperties:
                   type: string
@@ -527,6 +539,12 @@ spec:
           spec:
             description: AWSManagedMachinePoolSpec defines the desired state of AWSManagedMachinePool.
             properties:
+              additionalASGTags:
+                additionalProperties:
+                  type: string
+                description: AdditionalASGTags is an optional set of tags to add to
+                  the underlying ASG resources managed by the AWS provider
+                type: object
               additionalTags:
                 additionalProperties:
                   type: string
