@@ -91,6 +91,9 @@ func (r *AWSManagedMachinePool) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Taints = restored.Spec.Taints
 	dst.Spec.CapacityType = restored.Spec.CapacityType
 	dst.Spec.RoleAdditionalPolicies = restored.Spec.RoleAdditionalPolicies
+	dst.Spec.AWSLaunchTemplate = restored.Spec.AWSLaunchTemplate
+	dst.Status.LaunchTemplateID = restored.Status.LaunchTemplateID
+	dst.Status.LaunchTemplateVersion = restored.Status.LaunchTemplateVersion
 
 	return nil
 }
@@ -165,6 +168,11 @@ func Convert_v1beta1_AWSResourceReference_To_v1alpha3_AWSResourceReference(in *i
 // Convert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha3_AWSManagedMachinePoolSpec is a conversion function.
 func Convert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha3_AWSManagedMachinePoolSpec(in *infrav1exp.AWSManagedMachinePoolSpec, out *AWSManagedMachinePoolSpec, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha3_AWSManagedMachinePoolSpec(in, out, s)
+}
+
+// Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus is a conversion function.
+func Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus(in *infrav1exp.AWSManagedMachinePoolStatus, out *AWSManagedMachinePoolStatus, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus(in, out, s)
 }
 
 // Convert_v1beta1_Instance_To_v1alpha3_Instance is a conversion function.

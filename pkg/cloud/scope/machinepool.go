@@ -45,10 +45,11 @@ type MachinePoolScope struct {
 	client      client.Client
 	patchHelper *patch.Helper
 
-	Cluster        *clusterv1.Cluster
-	MachinePool    *expclusterv1.MachinePool
-	InfraCluster   EC2Scope
-	AWSMachinePool *expinfrav1.AWSMachinePool
+	Cluster             *clusterv1.Cluster
+	MachinePool         *expclusterv1.MachinePool
+	InfraCluster        EC2Scope
+	AWSMachinePool      *expinfrav1.AWSMachinePool
+	LaunchTemplateScope *LaunchTemplateScope
 }
 
 // MachinePoolScopeParams defines a scope defined around a machine and its cluster.
@@ -98,15 +99,29 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 
+	LaunchTemplateScope, err := NewLaunchTemplateScope(LaunchTemplateScopeParams{
+		Logger: params.Logger,
+
+		AWSLaunchTemplate: &params.AWSMachinePool.Spec.AWSLaunchTemplate,
+		MachinePool:       params.MachinePool,
+		InfraCluster:      params.InfraCluster,
+		name:              params.AWSMachinePool.Name,
+		additionalTags:    params.AWSMachinePool.Spec.AdditionalTags,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting launch template scope")
+	}
+
 	return &MachinePoolScope{
 		Logger:      params.Logger,
 		client:      params.Client,
 		patchHelper: helper,
 
-		Cluster:        params.Cluster,
-		MachinePool:    params.MachinePool,
-		InfraCluster:   params.InfraCluster,
-		AWSMachinePool: params.AWSMachinePool,
+		Cluster:             params.Cluster,
+		MachinePool:         params.MachinePool,
+		InfraCluster:        params.InfraCluster,
+		AWSMachinePool:      params.AWSMachinePool,
+		LaunchTemplateScope: LaunchTemplateScope,
 	}, nil
 }
 
@@ -216,7 +231,7 @@ func (m *MachinePoolScope) SetLaunchTemplateIDStatus(id string) {
 
 // IsEKSManaged checks if the AWSMachinePool is EKS managed.
 func (m *MachinePoolScope) IsEKSManaged() bool {
-	return m.InfraCluster.InfraCluster().GetObjectKind().GroupVersionKind().Kind == "AWSManagedControlPlane"
+	return m.InfraCluster.InfraCluster().GetObjectKind().GroupVersionKind().Kind == AWSManagedControlPlaneKind
 }
 
 // SubnetIDs returns the machine pool subnet IDs.

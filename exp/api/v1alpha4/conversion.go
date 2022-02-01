@@ -64,6 +64,9 @@ func (src *AWSManagedMachinePool) ConvertTo(dstRaw conversion.Hub) error {
 	}
 
 	dst.Spec.RoleAdditionalPolicies = restored.Spec.RoleAdditionalPolicies
+	dst.Spec.AWSLaunchTemplate = restored.Spec.AWSLaunchTemplate
+	dst.Status.LaunchTemplateID = restored.Status.LaunchTemplateID
+	dst.Status.LaunchTemplateVersion = restored.Status.LaunchTemplateVersion
 
 	return nil
 }
@@ -86,6 +89,11 @@ func (r *AWSManagedMachinePool) ConvertFrom(srcRaw conversion.Hub) error {
 // Convert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha4_AWSManagedMachinePoolSpec is a conversion function.
 func Convert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha4_AWSManagedMachinePoolSpec(in *infrav1exp.AWSManagedMachinePoolSpec, out *AWSManagedMachinePoolSpec, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha4_AWSManagedMachinePoolSpec(in, out, s)
+}
+
+// Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus is a conversion function.
+func Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus(in *infrav1exp.AWSManagedMachinePoolStatus, out *AWSManagedMachinePoolStatus, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus(in, out, s)
 }
 
 // ConvertTo converts the v1alpha4 AWSManagedMachinePoolList receiver to a v1beta1 AWSManagedMachinePoolList.
