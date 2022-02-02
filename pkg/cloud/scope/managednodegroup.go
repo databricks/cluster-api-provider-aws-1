@@ -93,7 +93,7 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 	}
 
 	LaunchTemplateScope, err := NewLaunchTemplateScope(LaunchTemplateScopeParams{
-		Logger: params.Logger,
+		Logger: &params.Logger,
 
 		AWSLaunchTemplate: params.ManagedMachinePool.Spec.AWSLaunchTemplate,
 		MachinePool:       params.MachinePool,
