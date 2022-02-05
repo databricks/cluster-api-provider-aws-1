@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sigs.k8s.io/cluster-api/util/annotations"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -118,6 +119,10 @@ func (r *AWSManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 	if err != nil {
 		log.Info("Failed to retrieve Cluster from MachinePool")
 		return reconcile.Result{}, nil
+	}
+	if annotations.IsPaused(cluster, awsPool) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
 	}
 
 	log = log.WithValues("Cluster", cluster.Name)
