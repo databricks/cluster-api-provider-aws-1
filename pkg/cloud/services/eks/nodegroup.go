@@ -513,6 +513,8 @@ func (s *NodegroupService) reconcileNodegroup() error {
 	switch *ng.Status {
 	case eks.NodegroupStatusCreating, eks.NodegroupStatusUpdating:
 		ng, err = s.waitForNodegroupActive()
+	case eks.NodegroupStatusCreateFailed: // In case node group with launch template create failed, ng.Version will be nil, and deferencing it in reconcileNodegroupVersion will throw error
+		return nil
 	default:
 		break
 	}
