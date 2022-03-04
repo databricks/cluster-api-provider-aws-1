@@ -70,6 +70,34 @@ func (s *Service) reconcileSubnets() error {
 		// for each az in a region up to a maximum of 3 azs
 		s.scope.Info("no subnets specified, setting defaults")
 		subnets, err = s.getDefaultSubnets()
+
+		if s.scope.SecondaryCidrBlock() != nil {
+			subnetCIDRs, err := cidr.SplitIntoSubnetsIPv4(*s.scope.SecondaryCidrBlock(), *s.scope.VPC().AvailabilityZoneUsageLimit)
+			if err != nil {
+				return err
+			}
+
+			zones, err := s.getAvailableZones()
+			if err != nil {
+				return err
+			}
+
+			for i, sub := range subnetCIDRs {
+				secondarySub := infrav1.SubnetSpec{
+					CidrBlock:        sub.String(),
+					AvailabilityZone: zones[i],
+					IsPublic:         false,
+					Tags: infrav1.Tags{
+						infrav1.NameAWSSubnetAssociation: infrav1.SecondarySubnetTagValue,
+					},
+				}
+				existingSubnet := existing.FindEqual(&secondarySub)
+				if existingSubnet == nil {
+					subnets = append(subnets, secondarySub)
+				}
+			}
+		}
+
 		if err != nil {
 			record.Warnf(s.scope.InfraCluster(), "FailedDefaultSubnets", "Failed getting default subnets: %v", err)
 			return errors.Wrap(err, "failed getting default subnets")
@@ -78,33 +106,6 @@ func (s *Service) reconcileSubnets() error {
 		if err := s.scope.PatchObject(); err != nil {
 			s.scope.Error(err, "failed to patch object to save subnets")
 			return err
-		}
-	}
-
-	if s.scope.SecondaryCidrBlock() != nil {
-		subnetCIDRs, err := cidr.SplitIntoSubnetsIPv4(*s.scope.SecondaryCidrBlock(), *s.scope.VPC().AvailabilityZoneUsageLimit)
-		if err != nil {
-			return err
-		}
-
-		zones, err := s.getAvailableZones()
-		if err != nil {
-			return err
-		}
-
-		for i, sub := range subnetCIDRs {
-			secondarySub := infrav1.SubnetSpec{
-				CidrBlock:        sub.String(),
-				AvailabilityZone: zones[i],
-				IsPublic:         false,
-				Tags: infrav1.Tags{
-					infrav1.NameAWSSubnetAssociation: infrav1.SecondarySubnetTagValue,
-				},
-			}
-			existingSubnet := existing.FindEqual(&secondarySub)
-			if existingSubnet == nil {
-				subnets = append(subnets, secondarySub)
-			}
 		}
 	}
 
