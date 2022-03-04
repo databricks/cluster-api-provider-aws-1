@@ -275,6 +275,8 @@ func (r *AWSManagedControlPlane) validateSecondaryCIDR() field.ErrorList {
 		cidrField := field.NewPath("spec", "secondaryCidrBlock")
 		_, validRange1, _ := net.ParseCIDR("100.64.0.0/10")
 		_, validRange2, _ := net.ParseCIDR("198.19.0.0/16")
+		_, validRange3, _ := net.ParseCIDR("10.0.0.0/8")
+		_, validRange4, _ := net.ParseCIDR("172.16.0.0/12")
 
 		_, ipv4Net, err := net.ParseCIDR(*r.Spec.SecondaryCidrBlock)
 		if err != nil {
@@ -288,8 +290,8 @@ func (r *AWSManagedControlPlane) validateSecondaryCIDR() field.ErrorList {
 		}
 
 		start, end := cidr.AddressRange(ipv4Net)
-		if (!validRange1.Contains(start) || !validRange1.Contains(end)) && (!validRange2.Contains(start) || !validRange2.Contains(end)) {
-			allErrs = append(allErrs, field.Invalid(cidrField, *r.Spec.SecondaryCidrBlock, "must be within the 100.64.0.0/10 or 198.19.0.0/16 range"))
+		if (!validRange1.Contains(start) || !validRange1.Contains(end)) && (!validRange2.Contains(start) || !validRange2.Contains(end)) && (!validRange3.Contains(start) || !validRange3.Contains(end)) && (!validRange4.Contains(start) || !validRange4.Contains(end)) {
+			allErrs = append(allErrs, field.Invalid(cidrField, *r.Spec.SecondaryCidrBlock, "must be within the 100.64.0.0/10, 198.19.0.0/16, 10.0.0.0/8, or 172.16.0.0/12 range"))
 		}
 	}
 
