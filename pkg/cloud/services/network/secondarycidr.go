@@ -49,12 +49,12 @@ func (s *Service) associateSecondaryCidr() error {
 
 	existingAssociations := vpcs.Vpcs[0].CidrBlockAssociationSet
 
-	for _, cidrBlock := range s.scope.SecondaryCidrBlocks() {
+	for i, cidrBlock := range s.scope.SecondaryCidrBlocks() {
 		found, _ := isInExistingCidrBlocks(cidrBlock, existingAssociations)
 		if !found {
 			out, err := s.EC2Client.AssociateVpcCidrBlock(&ec2.AssociateVpcCidrBlockInput{
 				VpcId:     &s.scope.VPC().ID,
-				CidrBlock: &cidrBlock,
+				CidrBlock: &s.scope.SecondaryCidrBlocks()[i],
 			})
 			if err != nil {
 				record.Warnf(s.scope.InfraCluster(), "FailedAssociateSecondaryCidr", "Failed associating secondary CIDR with VPC %v", err)

@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/controlplane/eks/api/v1beta1"
 	clusterapiapiv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	clusterapiapiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -30,7 +31,18 @@ import (
 func (r *AWSManagedControlPlane) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1beta1.AWSManagedControlPlane)
 
-	return Convert_v1alpha3_AWSManagedControlPlane_To_v1beta1_AWSManagedControlPlane(r, dst, nil)
+	if err := Convert_v1alpha3_AWSManagedControlPlane_To_v1beta1_AWSManagedControlPlane(r, dst, nil); err != nil {
+		return err
+	}
+	// Manually restore data.
+	restored := &v1beta1.AWSManagedControlPlane{}
+	if ok, err := utilconversion.UnmarshalData(r, restored); err != nil || !ok {
+		return err
+	}
+
+	dst.Spec.SecondaryCidrBlocks = restored.Spec.SecondaryCidrBlocks
+
+	return nil
 }
 
 // ConvertFrom converts the v1beta1 AWSManagedControlPlane receiver to a v1alpha3 AWSManagedControlPlane.

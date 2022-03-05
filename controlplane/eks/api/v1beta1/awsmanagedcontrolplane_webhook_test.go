@@ -475,7 +475,7 @@ func TestValidatingWebhookCreate_SecondaryCidr(t *testing.T) {
 		},
 		{
 			name:        "unsupported range",
-			cidrRange:   "10.0.0.1/20",
+			cidrRange:   "12.0.0.1/20",
 			expectError: true,
 		},
 		{
@@ -500,7 +500,7 @@ func TestValidatingWebhookCreate_SecondaryCidr(t *testing.T) {
 				},
 			}
 			if tc.cidrRange != "" {
-				mcp.Spec.SecondaryCidrBlock = &tc.cidrRange
+				mcp.Spec.SecondaryCidrBlocks = []string{tc.cidrRange}
 			}
 			err := mcp.ValidateCreate()
 
@@ -541,7 +541,7 @@ func TestValidatingWebhookUpdate_SecondaryCidr(t *testing.T) {
 		},
 		{
 			name:        "unsupported range",
-			cidrRange:   "10.0.0.1/20",
+			cidrRange:   "12.0.0.1/20",
 			expectError: true,
 		},
 		{
@@ -563,13 +563,13 @@ func TestValidatingWebhookUpdate_SecondaryCidr(t *testing.T) {
 			newMCP := &AWSManagedControlPlane{
 				Spec: AWSManagedControlPlaneSpec{
 					EKSClusterName:     "default_cluster1",
-					SecondaryCidrBlock: &tc.cidrRange,
+					SecondaryCidrBlocks: []string{tc.cidrRange},
 				},
 			}
 			oldMCP := &AWSManagedControlPlane{
 				Spec: AWSManagedControlPlaneSpec{
 					EKSClusterName:     "default_cluster1",
-					SecondaryCidrBlock: nil,
+					SecondaryCidrBlocks: nil,
 				},
 			}
 
