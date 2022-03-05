@@ -22,8 +22,17 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
 )
 
+func isInExistingCidrBlocks(cidrBlock string, existingAssociations []*ec2.VpcCidrBlockAssociation) (bool, *ec2.VpcCidrBlockAssociation) {
+	for _, existing := range existingAssociations {
+		if *existing.CidrBlock == cidrBlock {
+			return true, existing
+		}
+	}
+	return false, nil
+}
+
 func (s *Service) associateSecondaryCidr() error {
-	if s.scope.SecondaryCidrBlock() == nil {
+	if s.scope.SecondaryCidrBlocks() == nil {
 		return nil
 	}
 
@@ -39,28 +48,27 @@ func (s *Service) associateSecondaryCidr() error {
 	}
 
 	existingAssociations := vpcs.Vpcs[0].CidrBlockAssociationSet
-	for _, existing := range existingAssociations {
-		if *existing.CidrBlock == *s.scope.SecondaryCidrBlock() {
-			return nil
+
+	for _, cidrBlock := range s.scope.SecondaryCidrBlocks() {
+		found, _ := isInExistingCidrBlocks(cidrBlock, existingAssociations)
+		if !found {
+			out, err := s.EC2Client.AssociateVpcCidrBlock(&ec2.AssociateVpcCidrBlockInput{
+				VpcId:     &s.scope.VPC().ID,
+				CidrBlock: &cidrBlock,
+			})
+			if err != nil {
+				record.Warnf(s.scope.InfraCluster(), "FailedAssociateSecondaryCidr", "Failed associating secondary CIDR with VPC %v", err)
+				return err
+			}
+			record.Eventf(s.scope.InfraCluster(), "SuccessfulAssociateSecondaryCidr", "Associated secondary CIDR with VPC %q", *out.CidrBlockAssociation.AssociationId)
 		}
 	}
-
-	out, err := s.EC2Client.AssociateVpcCidrBlock(&ec2.AssociateVpcCidrBlockInput{
-		VpcId:     &s.scope.VPC().ID,
-		CidrBlock: s.scope.SecondaryCidrBlock(),
-	})
-	if err != nil {
-		record.Warnf(s.scope.InfraCluster(), "FailedAssociateSecondaryCidr", "Failed associating secondary CIDR with VPC %v", err)
-		return err
-	}
-
-	record.Eventf(s.scope.InfraCluster(), "SuccessfulAssociateSecondaryCidr", "Associated secondary CIDR with VPC %q", *out.CidrBlockAssociation.AssociationId)
 
 	return nil
 }
 
 func (s *Service) disassociateSecondaryCidr() error {
-	if s.scope.SecondaryCidrBlock() == nil {
+	if s.scope.SecondaryCidrBlocks() == nil {
 		return nil
 	}
 
@@ -76,8 +84,9 @@ func (s *Service) disassociateSecondaryCidr() error {
 	}
 
 	existingAssociations := vpcs.Vpcs[0].CidrBlockAssociationSet
-	for _, existing := range existingAssociations {
-		if existing.CidrBlock == s.scope.SecondaryCidrBlock() {
+	for _, cidrBlock := range s.scope.SecondaryCidrBlocks() {
+		found, existing := isInExistingCidrBlocks(cidrBlock, existingAssociations)
+		if found {
 			_, err := s.EC2Client.DisassociateVpcCidrBlock(&ec2.DisassociateVpcCidrBlockInput{
 				AssociationId: existing.AssociationId,
 			})

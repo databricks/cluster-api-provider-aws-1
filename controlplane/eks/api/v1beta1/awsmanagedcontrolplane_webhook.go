@@ -90,7 +90,7 @@ func (r *AWSManagedControlPlane) ValidateCreate() error {
 	allErrs = append(allErrs, r.validateEKSVersion(nil)...)
 	allErrs = append(allErrs, r.Spec.Bastion.Validate()...)
 	allErrs = append(allErrs, r.validateIAMAuthConfig()...)
-	allErrs = append(allErrs, r.validateSecondaryCIDR()...)
+	allErrs = append(allErrs, r.validateSecondaryCIDRs()...)
 	allErrs = append(allErrs, r.validateEKSAddons()...)
 	allErrs = append(allErrs, r.validateDisableVPCCNI()...)
 
@@ -121,7 +121,7 @@ func (r *AWSManagedControlPlane) ValidateUpdate(old runtime.Object) error {
 	allErrs = append(allErrs, r.validateEKSVersion(oldAWSManagedControlplane)...)
 	allErrs = append(allErrs, r.Spec.Bastion.Validate()...)
 	allErrs = append(allErrs, r.validateIAMAuthConfig()...)
-	allErrs = append(allErrs, r.validateSecondaryCIDR()...)
+	allErrs = append(allErrs, r.validateSecondaryCIDRs()...)
 	allErrs = append(allErrs, r.validateEKSAddons()...)
 	allErrs = append(allErrs, r.validateDisableVPCCNI()...)
 
@@ -269,29 +269,29 @@ func (r *AWSManagedControlPlane) validateIAMAuthConfig() field.ErrorList {
 	return allErrs
 }
 
-func (r *AWSManagedControlPlane) validateSecondaryCIDR() field.ErrorList {
+func (r *AWSManagedControlPlane) validateSecondaryCIDRs() field.ErrorList {
 	var allErrs field.ErrorList
-	if r.Spec.SecondaryCidrBlock != nil {
-		cidrField := field.NewPath("spec", "secondaryCidrBlock")
+	for _, cidrBlock := range r.Spec.SecondaryCidrBlocks {
+		cidrField := field.NewPath("spec", "secondaryCidrBlocks")
 		_, validRange1, _ := net.ParseCIDR("100.64.0.0/10")
 		_, validRange2, _ := net.ParseCIDR("198.19.0.0/16")
 		_, validRange3, _ := net.ParseCIDR("10.0.0.0/8")
 		_, validRange4, _ := net.ParseCIDR("172.16.0.0/12")
 
-		_, ipv4Net, err := net.ParseCIDR(*r.Spec.SecondaryCidrBlock)
+		_, ipv4Net, err := net.ParseCIDR(cidrBlock)
 		if err != nil {
-			allErrs = append(allErrs, field.Invalid(cidrField, *r.Spec.SecondaryCidrBlock, "must be valid CIDR range"))
+			allErrs = append(allErrs, field.Invalid(cidrField, cidrBlock, "must be valid CIDR range"))
 			return allErrs
 		}
 
 		cidrSize := cidr.AddressCount(ipv4Net)
 		if cidrSize > cidrSizeMax || cidrSize < cidrSizeMin {
-			allErrs = append(allErrs, field.Invalid(cidrField, *r.Spec.SecondaryCidrBlock, "CIDR block sizes must be between a /16 netmask and /28 netmask"))
+			allErrs = append(allErrs, field.Invalid(cidrField, cidrBlock, "CIDR block sizes must be between a /16 netmask and /28 netmask"))
 		}
 
 		start, end := cidr.AddressRange(ipv4Net)
 		if (!validRange1.Contains(start) || !validRange1.Contains(end)) && (!validRange2.Contains(start) || !validRange2.Contains(end)) && (!validRange3.Contains(start) || !validRange3.Contains(end)) && (!validRange4.Contains(start) || !validRange4.Contains(end)) {
-			allErrs = append(allErrs, field.Invalid(cidrField, *r.Spec.SecondaryCidrBlock, "must be within the 100.64.0.0/10, 198.19.0.0/16, 10.0.0.0/8, or 172.16.0.0/12 range"))
+			allErrs = append(allErrs, field.Invalid(cidrField, cidrBlock, "must be within the 100.64.0.0/10, 198.19.0.0/16, 10.0.0.0/8, or 172.16.0.0/12 range"))
 		}
 	}
 
@@ -358,6 +358,10 @@ func (r *AWSManagedControlPlane) Default() {
 			return
 		}
 		r.Spec.Version = &normalizedV
+	}
+
+	if r.Spec.SecondaryCidrBlock != nil && len(r.Spec.SecondaryCidrBlocks) == 0 {
+		r.Spec.SecondaryCidrBlocks = []string{*r.Spec.SecondaryCidrBlock}
 	}
 
 	infrav1.SetDefaults_Bastion(&r.Spec.Bastion)

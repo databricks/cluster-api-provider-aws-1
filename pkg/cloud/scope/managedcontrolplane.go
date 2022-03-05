@@ -184,9 +184,9 @@ func (s *ManagedControlPlaneScope) SecurityGroups() map[infrav1.SecurityGroupRol
 	return s.ControlPlane.Status.Network.SecurityGroups
 }
 
-// SecondaryCidrBlock returns the SecondaryCidrBlock of the control plane.
-func (s *ManagedControlPlaneScope) SecondaryCidrBlock() *string {
-	return s.ControlPlane.Spec.SecondaryCidrBlock
+// SecondaryCidrBlocks returns the SecondaryCidrBlocks of the control plane.
+func (s *ManagedControlPlaneScope) SecondaryCidrBlocks() []string {
+	return s.ControlPlane.Spec.SecondaryCidrBlocks
 }
 
 // SecurityGroupOverrides returns the the security groups that are overridden in the ControlPlane spec.

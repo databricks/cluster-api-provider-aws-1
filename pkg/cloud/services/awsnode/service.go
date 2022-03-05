@@ -31,8 +31,8 @@ type Scope interface {
 	RemoteClient() (client.Client, error)
 	// Subnets returns the cluster subnets.
 	Subnets() infrav1.Subnets
-	// SecondaryCidrBlock returns the optional secondary CIDR block to use for pod IPs
-	SecondaryCidrBlock() *string
+	// SecondaryCidrBlocks returns the optional secondary CIDR blocks to use for pod IPs
+	SecondaryCidrBlocks() []string
 	// SecurityGroups returns the control plane security groups as a map, it creates the map if empty.
 	SecurityGroups() map[infrav1.SecurityGroupRole]infrav1.SecurityGroup
 	// DisableVPCCNI returns whether the AWS VPC CNI should be disabled

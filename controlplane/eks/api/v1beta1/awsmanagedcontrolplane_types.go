@@ -47,6 +47,11 @@ type AWSManagedControlPlaneSpec struct { //nolint: maligned
 	// +optional
 	SecondaryCidrBlock *string `json:"secondaryCidrBlock,omitempty"`
 
+	// SecondaryCidrBlocks is the additional CIDR ranges to use for pod IPs.
+	// Must be within the 100.64.0.0/10, 198.19.0.0/16, 10.0.0.0/8, or 172.16.0.0/12 range.
+	// +optional
+	SecondaryCidrBlocks []string `json:"secondaryCidrBlocks,omitempty"`
+
 	// The AWS Region the cluster lives in.
 	Region string `json:"region,omitempty"`
 

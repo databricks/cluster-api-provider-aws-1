@@ -50,7 +50,7 @@ func (s *Service) ReconcileCNI(ctx context.Context) error {
 		}
 	}
 
-	if s.scope.SecondaryCidrBlock() == nil {
+	if len(s.scope.SecondaryCidrBlocks()) == 0 {
 		return nil
 	}
 
