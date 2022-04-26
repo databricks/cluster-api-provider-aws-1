@@ -45,6 +45,7 @@ func (r *AWSMachinePool) ConvertTo(dstRaw conversion.Hub) error {
 		}
 		infrav1alpha3.RestoreRootVolume(restored.Spec.AWSLaunchTemplate.RootVolume, dst.Spec.AWSLaunchTemplate.RootVolume)
 	}
+	dst.Spec.AWSLaunchTemplate.SkipCoreSecurityGroups = restored.Spec.AWSLaunchTemplate.SkipCoreSecurityGroups
 	return nil
 }
 
@@ -173,6 +174,11 @@ func Convert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha3_AWSManagedMachinePool
 // Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus is a conversion function.
 func Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus(in *infrav1exp.AWSManagedMachinePoolStatus, out *AWSManagedMachinePoolStatus, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus(in, out, s)
+}
+
+// Convert_v1beta1_AWSLaunchTemplate_To_v1alpha3_AWSLaunchTemplate is a conversion function.
+func Convert_v1beta1_AWSLaunchTemplate_To_v1alpha3_AWSLaunchTemplate(in *infrav1exp.AWSLaunchTemplate, out *AWSLaunchTemplate, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_AWSLaunchTemplate_To_v1alpha3_AWSLaunchTemplate(in, out, s)
 }
 
 // Convert_v1beta1_Instance_To_v1alpha3_Instance is a conversion function.

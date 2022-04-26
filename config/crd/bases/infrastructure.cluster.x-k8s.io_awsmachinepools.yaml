@@ -1144,6 +1144,8 @@ spec:
                     required:
                     - size
                     type: object
+                  skipCoreSecurityGroups:
+                    type: boolean
                   sshKeyName:
                     description: SSHKeyName is the name of the ssh key to attach to
                       the instance. Valid values are empty string (do not use SSH

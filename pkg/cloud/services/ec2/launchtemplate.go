@@ -177,13 +177,15 @@ func (s *Service) createLaunchTemplateData(scope *scope.LaunchTemplateScope, ima
 		}
 	}
 
-	ids, err := s.GetCoreNodeSecurityGroups(scope)
-	if err != nil {
-		return nil, err
-	}
+	if scope.AWSLaunchTemplate.SkipCoreSecurityGroups == nil || !*scope.AWSLaunchTemplate.SkipCoreSecurityGroups {
+		ids, err := s.GetCoreNodeSecurityGroups(scope)
+		if err != nil {
+			return nil, err
+		}
 
-	for _, id := range ids {
-		data.SecurityGroupIds = append(data.SecurityGroupIds, aws.String(id))
+		for _, id := range ids {
+			data.SecurityGroupIds = append(data.SecurityGroupIds, aws.String(id))
+		}
 	}
 
 	// add additional security groups as well
