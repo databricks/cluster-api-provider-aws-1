@@ -399,12 +399,13 @@ func (s *Service) LaunchTemplateNeedsUpdate(scope *scope.LaunchTemplateScope, in
 		incomingIDs[i] = aws.StringValue(ref.ID)
 	}
 
-	coreIDs, err := s.GetCoreNodeSecurityGroups(scope)
-	if err != nil {
-		return false, err
+	if scope.AWSLaunchTemplate.SkipCoreSecurityGroups == nil || !*scope.AWSLaunchTemplate.SkipCoreSecurityGroups {
+		coreIDs, err := s.GetCoreNodeSecurityGroups(scope)
+		if err != nil {
+			return false, err
+		}
+		incomingIDs = append(incomingIDs, coreIDs...)
 	}
-
-	incomingIDs = append(incomingIDs, coreIDs...)
 
 	existingIDs := make([]string, len(existing.AdditionalSecurityGroups))
 	for i, ref := range existing.AdditionalSecurityGroups {
