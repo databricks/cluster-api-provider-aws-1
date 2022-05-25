@@ -307,9 +307,9 @@ func buildProvidersForRef(
 		}
 
 		if sourceProvider != nil {
-			provider = identity.NewAWSRolePrincipalTypeProvider(roleIdentity, &sourceProvider, log)
+			provider = identity.NewAWSRolePrincipalTypeProvider(roleIdentity, &sourceProvider, clusterScoper.Region(), log)
 		} else {
-			provider = identity.NewAWSRolePrincipalTypeProvider(roleIdentity, nil, log)
+			provider = identity.NewAWSRolePrincipalTypeProvider(roleIdentity, nil, clusterScoper.Region(), log)
 		}
 		providers = append(providers, provider)
 	default:
