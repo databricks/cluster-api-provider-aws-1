@@ -25,6 +25,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -104,6 +105,7 @@ var (
 	webhookCertDir           string
 	healthAddr               string
 	serviceEndpoints         string
+	fipsEnabledRegions       string
 
 	errEKSInvalidFlags = errors.New("invalid EKS flag combination")
 )
@@ -163,6 +165,9 @@ func main() {
 
 	setupLog.V(1).Info(fmt.Sprintf("feature gates: %+v\n", feature.Gates))
 
+	// Parse and update FIPS enabled regions
+	scope.FipsRegions = strings.Split(fipsEnabledRegions, ",")
+	setupLog.V(1).Info(fmt.Sprintf("fips enabled for regions: %v", scope.FipsRegions))
 	// Parse service endpoints.
 	AWSServiceEndpoints, err := endpoints.ParseFlag(serviceEndpoints)
 	if err != nil {
@@ -469,6 +474,12 @@ func initFlags(fs *pflag.FlagSet) {
 		"watch-filter",
 		"",
 		fmt.Sprintf("Label value that the controller watches to reconcile cluster-api objects. Label key is always %s. If unspecified, the controller watches for all cluster-api objects.", clusterv1.WatchLabel),
+	)
+
+	fs.StringVar(&fipsEnabledRegions,
+		"fips-regions",
+		"",
+		"Specify the regions for which FIPS endpoints should be used. Comma separated list of regions: {region-1},{region-2},...",
 	)
 
 	feature.MutableGates.AddFlag(fs)

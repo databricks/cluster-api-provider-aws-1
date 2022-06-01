@@ -60,6 +60,9 @@ type ServiceEndpoint struct {
 var sessionCache sync.Map
 var providerCache sync.Map
 
+// FipsRegions specifies the regions for which FIPS endpoints should be used when talking to aws.
+var FipsRegions []string
+
 type sessionCacheEntry struct {
 	session         *session.Session
 	serviceLimiters throttle.ServiceLimiters
@@ -89,6 +92,7 @@ func sessionForRegion(region string, endpoint []ServiceEndpoint) (*session.Sessi
 	ns, err := session.NewSession(&aws.Config{
 		Region:           aws.String(region),
 		EndpointResolver: endpoints.ResolverFunc(resolver),
+		UseFIPSEndpoint:  getFIPSStateForRegion(region),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -153,6 +157,7 @@ func sessionForClusterWithRegion(k8sClient client.Client, clusterScoper cloud.Cl
 	awsConfig := &aws.Config{
 		Region:           aws.String(region),
 		EndpointResolver: endpoints.ResolverFunc(resolver),
+		UseFIPSEndpoint:  getFIPSStateForRegion(region),
 	}
 
 	if len(providers) > 0 {
@@ -178,6 +183,15 @@ func sessionForClusterWithRegion(k8sClient client.Client, clusterScoper cloud.Cl
 	})
 
 	return ns, sl, nil
+}
+
+func getFIPSStateForRegion(region string) endpoints.FIPSEndpointState {
+	for _, r := range FipsRegions {
+		if region == r {
+			return endpoints.FIPSEndpointStateEnabled
+		}
+	}
+	return endpoints.FIPSEndpointStateDisabled
 }
 
 func getSessionName(region string, clusterScoper cloud.ClusterScoper) string {
