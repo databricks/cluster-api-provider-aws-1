@@ -51,6 +51,16 @@ func (s *Service) reconcileOIDCProvider(cluster *eks.Cluster) error {
 	}
 
 	s.scope.Info("Reconciling EKS OIDC Provider", "cluster-name", cluster.Name)
+	existing, err := s.GetOIDCProvider(cluster)
+	if err != nil {
+		return errors.New("failed to check if OIDC provider for the EKS cluster already exists")
+	}
+	if existing != nil {
+		s.scope.Info("OIDC provider for cluster already exists.", "cluster-name", cluster.Name)
+		s.scope.ControlPlane.Status.OIDCProvider.ARN = *existing
+		return nil
+	}
+
 	oidcProvider, err := s.CreateOIDCProvider(cluster)
 	if err != nil {
 		return errors.Wrap(err, "failed to create OIDC provider")
