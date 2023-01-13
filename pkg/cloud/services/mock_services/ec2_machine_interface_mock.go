@@ -68,7 +68,7 @@ func (mr *MockEC2MachineInterfaceMockRecorder) CreateInstance(arg0, arg1 interfa
 }
 
 // CreateLaunchTemplate mocks base method.
-func (m *MockEC2MachineInterface) CreateLaunchTemplate(arg0 *scope.MachinePoolScope, arg1 *string, arg2 []byte) (string, error) {
+func (m *MockEC2MachineInterface) CreateLaunchTemplate(arg0 *scope.LaunchTemplateScope, arg1 *string, arg2 []byte) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateLaunchTemplate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
@@ -83,17 +83,17 @@ func (mr *MockEC2MachineInterfaceMockRecorder) CreateLaunchTemplate(arg0, arg1, 
 }
 
 // CreateLaunchTemplateVersion mocks base method.
-func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 *scope.MachinePoolScope, arg1 *string, arg2 []byte) error {
+func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 *string, arg1 *scope.LaunchTemplateScope, arg2 *string, arg3 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateLaunchTemplateVersion", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateLaunchTemplateVersion", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateLaunchTemplateVersion indicates an expected call of CreateLaunchTemplateVersion.
-func (mr *MockEC2MachineInterfaceMockRecorder) CreateLaunchTemplateVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockEC2MachineInterfaceMockRecorder) CreateLaunchTemplateVersion(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLaunchTemplateVersion", reflect.TypeOf((*MockEC2MachineInterface)(nil).CreateLaunchTemplateVersion), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLaunchTemplateVersion", reflect.TypeOf((*MockEC2MachineInterface)(nil).CreateLaunchTemplateVersion), arg0, arg1, arg2, arg3)
 }
 
 // DeleteLaunchTemplate mocks base method.
@@ -125,7 +125,7 @@ func (mr *MockEC2MachineInterfaceMockRecorder) DetachSecurityGroupsFromNetworkIn
 }
 
 // DiscoverLaunchTemplateAMI mocks base method.
-func (m *MockEC2MachineInterface) DiscoverLaunchTemplateAMI(arg0 *scope.MachinePoolScope) (*string, error) {
+func (m *MockEC2MachineInterface) DiscoverLaunchTemplateAMI(arg0 *scope.LaunchTemplateScope) (*string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DiscoverLaunchTemplateAMI", arg0)
 	ret0, _ := ret[0].(*string)
@@ -215,6 +215,21 @@ func (mr *MockEC2MachineInterfaceMockRecorder) GetLaunchTemplateID(arg0 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLaunchTemplateID", reflect.TypeOf((*MockEC2MachineInterface)(nil).GetLaunchTemplateID), arg0)
 }
 
+// GetLaunchTemplateLatestVersion mocks base method.
+func (m *MockEC2MachineInterface) GetLaunchTemplateLatestVersion(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLaunchTemplateLatestVersion", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLaunchTemplateLatestVersion indicates an expected call of GetLaunchTemplateLatestVersion.
+func (mr *MockEC2MachineInterfaceMockRecorder) GetLaunchTemplateLatestVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLaunchTemplateLatestVersion", reflect.TypeOf((*MockEC2MachineInterface)(nil).GetLaunchTemplateLatestVersion), arg0)
+}
+
 // GetRunningInstanceByTags mocks base method.
 func (m *MockEC2MachineInterface) GetRunningInstanceByTags(arg0 *scope.MachineScope) (*v1beta1.Instance, error) {
 	m.ctrl.T.Helper()
@@ -246,7 +261,7 @@ func (mr *MockEC2MachineInterfaceMockRecorder) InstanceIfExists(arg0 interface{}
 }
 
 // LaunchTemplateNeedsUpdate mocks base method.
-func (m *MockEC2MachineInterface) LaunchTemplateNeedsUpdate(arg0 *scope.MachinePoolScope, arg1, arg2 *v1beta10.AWSLaunchTemplate) (bool, error) {
+func (m *MockEC2MachineInterface) LaunchTemplateNeedsUpdate(arg0 *scope.LaunchTemplateScope, arg1, arg2 *v1beta10.AWSLaunchTemplate) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LaunchTemplateNeedsUpdate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bool)

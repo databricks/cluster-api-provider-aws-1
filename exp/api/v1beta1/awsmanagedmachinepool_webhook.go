@@ -94,6 +94,32 @@ func (r *AWSManagedMachinePool) validateRemoteAccess() field.ErrorList {
 	return allErrs
 }
 
+func (r *AWSManagedMachinePool) validateLaunchTemplate() field.ErrorList {
+	var allErrs field.ErrorList
+	if r.Spec.AWSLaunchTemplate == nil {
+		return allErrs
+	}
+
+	if r.Spec.AMIType != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AMIType"), r.Spec.AMIType, "AMIType cannot be specified when LaunchTemplate is specified"))
+	}
+	if r.Spec.AMIVersion != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AMIVersion"), r.Spec.AMIVersion, "AMIVersion cannot be specified when LaunchTemplate is specified"))
+	}
+	if r.Spec.InstanceType != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "InstanceType"), r.Spec.InstanceType, "InstanceType cannot be specified when LaunchTemplate is specified"))
+	}
+	if r.Spec.DiskSize != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "DiskSize"), r.Spec.DiskSize, "DiskSize cannot be specified when LaunchTemplate is specified"))
+	}
+
+	if r.Spec.AWSLaunchTemplate.IamInstanceProfile != "" {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AWSLaunchTemplate", "IamInstanceProfile"), r.Spec.AWSLaunchTemplate.IamInstanceProfile, "IAM instance profile in launch template is prohibited in EKS managed node group"))
+	}
+
+	return allErrs
+}
+
 // ValidateCreate will do any extra validation when creating a AWSManagedMachinePool.
 func (r *AWSManagedMachinePool) ValidateCreate() error {
 	mmpLog.Info("AWSManagedMachinePool validate create", "name", r.Name)
@@ -107,6 +133,9 @@ func (r *AWSManagedMachinePool) ValidateCreate() error {
 		allErrs = append(allErrs, errs...)
 	}
 	if errs := r.validateRemoteAccess(); len(errs) > 0 {
+		allErrs = append(allErrs, errs...)
+	}
+	if errs := r.validateLaunchTemplate(); len(errs) > 0 {
 		allErrs = append(allErrs, errs...)
 	}
 
@@ -135,6 +164,9 @@ func (r *AWSManagedMachinePool) ValidateUpdate(old runtime.Object) error {
 	allErrs = append(allErrs, r.validateImmutable(oldPool)...)
 
 	if errs := r.validateScaling(); errs != nil || len(errs) == 0 {
+		allErrs = append(allErrs, errs...)
+	}
+	if errs := r.validateLaunchTemplate(); len(errs) > 0 {
 		allErrs = append(allErrs, errs...)
 	}
 
@@ -185,6 +217,16 @@ func (r *AWSManagedMachinePool) validateImmutable(old *AWSManagedMachinePool) fi
 	appendErrorIfMutated(old.Spec.AMIType, r.Spec.AMIType, "amiType")
 	appendErrorIfMutated(old.Spec.RemoteAccess, r.Spec.RemoteAccess, "remoteAccess")
 	appendErrorIfSetAndMutated(old.Spec.CapacityType, r.Spec.CapacityType, "capacityType")
+	if (old.Spec.AWSLaunchTemplate != nil && r.Spec.AWSLaunchTemplate == nil) ||
+		(old.Spec.AWSLaunchTemplate == nil && r.Spec.AWSLaunchTemplate != nil) {
+		allErrs = append(
+			allErrs,
+			field.Invalid(field.NewPath("spec", "AWSLaunchTemplate"), old.Spec.AWSLaunchTemplate, "field is immutable"),
+		)
+	}
+	if old.Spec.AWSLaunchTemplate != nil && r.Spec.AWSLaunchTemplate != nil {
+		appendErrorIfMutated(old.Spec.AWSLaunchTemplate.Name, r.Spec.AWSLaunchTemplate.Name, "awsLaunchTemplate.name")
+	}
 
 	return allErrs
 }
