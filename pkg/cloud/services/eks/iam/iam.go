@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/eks"
@@ -432,6 +433,30 @@ func (s *IAMService) CreateOIDCProvider(cluster *eks.Cluster) (string, error) {
 		return "", errors.Wrap(err, "error creating provider")
 	}
 	return *provider.OpenIDConnectProviderArn, nil
+}
+
+// GetOIDCProvider will return the OIDC provider for the eks cluster.
+func (s *IAMService) GetOIDCProvider(cluster *eks.Cluster) (*string, error) {
+	if cluster.Identity.Oidc.Issuer == nil || !strings.Contains(*cluster.Identity.Oidc.Issuer, "/") {
+		return nil, errors.Errorf("eks cluster does not specify OIDC issuer or the issuer URL is invalid. URL: %s", *cluster.Identity.Oidc.Issuer)
+	}
+	// Example issuer url: https://oidc.eks.region-code.amazonaws.com/id/EXAMPLED539D4633E53DE1B71EXAMPLE
+	// We need to get the id to match with provider Arns
+	issuerId := (*cluster.Identity.Oidc.Issuer)[strings.LastIndex(*cluster.Identity.Oidc.Issuer, "/")+1:]
+	if len(issuerId) == 0 {
+		return nil, errors.Errorf("invalid OIDC issuer id(%s) for EKS cluster.", *cluster.Identity.Oidc.Issuer)
+	}
+	input := iam.ListOpenIDConnectProvidersInput{}
+	providers, err := s.IAMClient.ListOpenIDConnectProviders(&input)
+	if err != nil {
+		return nil, err
+	}
+	for _, provider := range providers.OpenIDConnectProviderList {
+		if strings.Contains(*provider.Arn, issuerId) {
+			return provider.Arn, nil
+		}
+	}
+	return nil, nil
 }
 
 func fetchRootCAThumbprint(issuerURL string) (string, error) {

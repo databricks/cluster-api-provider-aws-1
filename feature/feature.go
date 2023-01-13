@@ -43,6 +43,11 @@ const (
 	// alpha: v0.4
 	EKSAllowAddRoles featuregate.Feature = "EKSAllowAddRoles"
 
+	// EKSAllowUpdateLaunchTemplates is used to enable update of launch templates
+	// owner: @richardchen-db
+	// alpha: v0.4
+	EKSAllowUpdateLaunchTemplates featuregate.Feature = "EKSAllowUpdateLaunchTemplates"
+
 	// EKSFargate is used to enable the usage of EKS fargate profiles
 	// owner: @richardcase
 	// alpha: v0.4
@@ -75,6 +80,7 @@ var defaultCAPAFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
 	EKS:                           {Default: true, PreRelease: featuregate.Beta},
 	EKSEnableIAM:                  {Default: false, PreRelease: featuregate.Beta},
 	EKSAllowAddRoles:              {Default: false, PreRelease: featuregate.Beta},
+	EKSAllowUpdateLaunchTemplates: {Default: false, PreRelease: featuregate.Beta},
 	EKSFargate:                    {Default: false, PreRelease: featuregate.Alpha},
 	EventBridgeInstanceState:      {Default: false, PreRelease: featuregate.Alpha},
 	MachinePool:                   {Default: false, PreRelease: featuregate.Alpha},

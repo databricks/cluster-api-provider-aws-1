@@ -107,6 +107,9 @@ type AWSLaunchTemplate struct {
 	// 3) A new AMI is discovered.
 	VersionNumber *int64 `json:"versionNumber,omitempty"`
 
+	// +optional
+	SkipCoreSecurityGroups *bool `json:"skipCoreSecurityGroups,omitempty"`
+
 	// AdditionalSecurityGroups is an array of references to security groups that should be applied to the
 	// instances. These security groups would be set in addition to any security groups defined
 	// at the cluster level or in the actuator.

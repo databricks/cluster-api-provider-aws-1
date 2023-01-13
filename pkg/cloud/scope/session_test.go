@@ -423,6 +423,7 @@ func TestPrincipalParsing(t *testing.T) {
 						Name: "role-identity",
 						Kind: infrav1.ClusterRoleIdentityKind,
 					},
+					Region: "us-west-2",
 				},
 			},
 			setup: func(c client.Client, t *testing.T) {
@@ -456,6 +457,9 @@ func TestPrincipalParsing(t *testing.T) {
 				}
 				if p.Principal.Spec.RoleArn != "role-arn" {
 					t.Fatal(errors.Errorf("Expected Role Provider ARN to be 'role-arn', got '%s'", p.Principal.Spec.RoleArn))
+				}
+				if *p.Region != "us-west-2" {
+					t.Fatal(errors.Errorf("Expected Role Provider Region to be 'us-west-2', got '%s'", *p.Region))
 				}
 			},
 		},
