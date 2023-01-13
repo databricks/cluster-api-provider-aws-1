@@ -33,6 +33,7 @@ import (
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
 	ekscontrolplanev1 "sigs.k8s.io/cluster-api-provider-aws/controlplane/eks/api/v1beta1"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1beta1"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/converters"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/wait"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
@@ -62,6 +63,34 @@ func (s *NodegroupService) describeNodegroup() (*eks.Nodegroup, error) {
 	}
 
 	return out.Nodegroup, nil
+}
+
+func (s *NodegroupService) describeASGs(ng *eks.Nodegroup) (*autoscaling.Group, error) {
+	eksClusterName := s.scope.KubernetesClusterName()
+	nodegroupName := s.scope.NodegroupName()
+	s.scope.V(2).Info("describing node group ASG", "cluster", eksClusterName, "nodegroup", nodegroupName)
+
+	if len(ng.Resources.AutoScalingGroups) == 0 {
+		return nil, nil
+	}
+
+	input := &autoscaling.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: []*string{
+			ng.Resources.AutoScalingGroups[0].Name,
+		},
+	}
+
+	out, err := s.AutoscalingClient.DescribeAutoScalingGroups(input)
+	switch {
+	case awserrors.IsNotFound(err):
+		return nil, nil
+	case err != nil:
+		return nil, errors.Wrap(err, "failed to describe ASGs")
+	case len(out.AutoScalingGroups) == 0:
+		return nil, errors.Wrap(err, "no ASG found")
+	}
+
+	return out.AutoScalingGroups[0], nil
 }
 
 func (s *NodegroupService) scalingConfig() *eks.NodegroupScalingConfig {
@@ -205,6 +234,12 @@ func (s *NodegroupService) createNodegroup() (*eks.Nodegroup, error) {
 		}
 		input.CapacityType = aws.String(capacityType)
 	}
+	if managedPool.AWSLaunchTemplate != nil {
+		input.LaunchTemplate = &eks.LaunchTemplateSpecification{
+			Id:      s.scope.ManagedMachinePool.Status.LaunchTemplateID,
+			Version: s.scope.ManagedMachinePool.Status.LaunchTemplateVersion,
+		}
+	}
 
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "created invalid CreateNodegroupInput")
@@ -289,9 +324,14 @@ func (s *NodegroupService) reconcileNodegroupVersion(ng *eks.Nodegroup) error {
 	ngVersion := version.MustParseGeneric(*ng.Version)
 	specAMI := s.scope.ManagedMachinePool.Spec.AMIVersion
 	ngAMI := *ng.ReleaseVersion
+	statusLaunchTemplateVersion := s.scope.ManagedMachinePool.Status.LaunchTemplateVersion
+	var ngLaunchTemplateVersion *string
+	if ng.LaunchTemplate != nil {
+		ngLaunchTemplateVersion = ng.LaunchTemplate.Version
+	}
 
 	eksClusterName := s.scope.KubernetesClusterName()
-	if (specVersion != nil && ngVersion.LessThan(specVersion)) || (specAMI != nil && *specAMI != ngAMI) {
+	if (specVersion != nil && ngVersion.LessThan(specVersion)) || (specAMI != nil && *specAMI != ngAMI) || (statusLaunchTemplateVersion != nil && *statusLaunchTemplateVersion != *ngLaunchTemplateVersion) {
 		input := &eks.UpdateNodegroupVersionInput{
 			ClusterName:   aws.String(eksClusterName),
 			NodegroupName: aws.String(s.scope.NodegroupName()),
@@ -299,14 +339,21 @@ func (s *NodegroupService) reconcileNodegroupVersion(ng *eks.Nodegroup) error {
 
 		var updateMsg string
 		// Either update k8s version or AMI version
-		if specVersion != nil && ngVersion.LessThan(specVersion) {
+		switch {
+		case specVersion != nil && ngVersion.LessThan(specVersion):
 			// NOTE: you can only upgrade increments of minor versions. If you want to upgrade 1.14 to 1.16 we
 			// need to go 1.14-> 1.15 and then 1.15 -> 1.16.
 			input.Version = aws.String(versionToEKS(ngVersion.WithMinor(ngVersion.Minor() + 1)))
 			updateMsg = fmt.Sprintf("to version %s", *input.Version)
-		} else if specAMI != nil && *specAMI != ngAMI {
+		case specAMI != nil && *specAMI != ngAMI:
 			input.ReleaseVersion = specAMI
 			updateMsg = fmt.Sprintf("to AMI version %s", *input.ReleaseVersion)
+		case statusLaunchTemplateVersion != nil && *statusLaunchTemplateVersion != *ngLaunchTemplateVersion:
+			input.LaunchTemplate = &eks.LaunchTemplateSpecification{
+				Id:      s.scope.ManagedMachinePool.Status.LaunchTemplateID,
+				Version: statusLaunchTemplateVersion,
+			}
+			updateMsg = fmt.Sprintf("to launch template version %s", *statusLaunchTemplateVersion)
 		}
 
 		if err := wait.WaitForWithRetryable(wait.NewBackoff(), func() (bool, error) {
@@ -466,6 +513,8 @@ func (s *NodegroupService) reconcileNodegroup() error {
 	switch *ng.Status {
 	case eks.NodegroupStatusCreating, eks.NodegroupStatusUpdating:
 		ng, err = s.waitForNodegroupActive()
+	case eks.NodegroupStatusCreateFailed: // In case node group with launch template create failed, ng.Version will be nil, and deferencing it in reconcileNodegroupVersion will throw error
+		return nil
 	default:
 		break
 	}
@@ -484,6 +533,10 @@ func (s *NodegroupService) reconcileNodegroup() error {
 
 	if err := s.reconcileTags(ng); err != nil {
 		return errors.Wrapf(err, "failed to reconcile nodegroup tags")
+	}
+
+	if err := s.reconcileASGTags(ng); err != nil {
+		return errors.Wrapf(err, "failed to reconcile asg tags")
 	}
 
 	return nil
