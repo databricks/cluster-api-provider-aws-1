@@ -289,3 +289,12 @@ const (
 	// AmazonLinuxGPU is the AmazonLinux GPU AMI type.
 	AmazonLinuxGPU EKSAMILookupType = "AmazonLinuxGPU"
 )
+
+const (
+	// PreventAccidentalClusterDeletionAnnotation is an annotation that can be applied to any Cluster API
+	// object to prevent a controller from deleting a resource.
+	//
+	// Controller Webhooks working with Cluster API objects must check the existence of this annotation
+	// on the reconciled object.
+	PreventAccidentalDeletionAnnotation = "prevent-accidental-deletion"
+)

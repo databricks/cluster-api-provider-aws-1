@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"time"
 
 	"github.com/pkg/errors"
@@ -34,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -52,9 +53,10 @@ import (
 )
 
 const (
-	// deleteRequeueAfter is how long to wait before checking again to see if the control plane still
-	// has dependencies during deletion.
-	deleteRequeueAfter = 20 * time.Second
+	// requeueAfter is how long to wait before reconciling the control plane. Since control plan reconciliation also
+	// creates the kubeconfig secret with the auth token, and the auth token is only valid for 15 minutes, we need to
+	// reconcile the control plane at least every 15 minutes.
+	syncPeriod = 10 * time.Minute
 )
 
 // AWSManagedControlPlaneReconciler reconciles a AWSManagedControlPlane object.
@@ -77,6 +79,7 @@ func (r *AWSManagedControlPlaneReconciler) SetupWithManager(ctx context.Context,
 		For(awsManagedControlPlane).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
+		WithEventFilter(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{})).
 		Build(r)
 
 	if err != nil {
@@ -85,7 +88,7 @@ func (r *AWSManagedControlPlaneReconciler) SetupWithManager(ctx context.Context,
 
 	if err = c.Watch(
 		&source.Kind{Type: &clusterv1.Cluster{}},
-		handler.EnqueueRequestsFromMapFunc(util.ClusterToInfrastructureMapFunc(awsManagedControlPlane.GroupVersionKind())),
+		handler.EnqueueRequestsFromMapFunc(util.ClusterToInfrastructureMapFunc(ekscontrolplanev1.GroupVersion.WithKind("AWSManagedControlPlane"))),
 		predicates.ClusterUnpausedAndInfrastructureReady(log),
 	); err != nil {
 		return fmt.Errorf("failed adding a watch for ready clusters: %w", err)
@@ -126,12 +129,12 @@ func (r *AWSManagedControlPlaneReconciler) Reconcile(ctx context.Context, req ct
 	}
 	if cluster == nil {
 		log.Info("Cluster Controller has not yet set OwnerRef")
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if annotations.IsPaused(cluster, awsControlPlane) {
 		log.Info("Reconciliation is paused for this object")
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: syncPeriod}, nil
 	}
 
 	managedScope, err := scope.NewManagedControlPlaneScope(scope.ManagedControlPlaneScopeParams{
@@ -243,7 +246,8 @@ func (r *AWSManagedControlPlaneReconciler) reconcileNormal(ctx context.Context, 
 		})
 	}
 
-	return reconcile.Result{}, nil
+	// Always reconcile after the syncPeriod to ensure the auth token in kubeconfig secret is refreshed before expiry.
+	return reconcile.Result{RequeueAfter: syncPeriod}, nil
 }
 
 func (r *AWSManagedControlPlaneReconciler) reconcileDelete(ctx context.Context, managedScope *scope.ManagedControlPlaneScope) (_ ctrl.Result, reterr error) {
@@ -260,7 +264,7 @@ func (r *AWSManagedControlPlaneReconciler) reconcileDelete(ctx context.Context, 
 	}
 	if numDependencies > 0 {
 		log.Info("EKS cluster still has dependencies - requeue needed", "dependencyCount", numDependencies)
-		return reconcile.Result{RequeueAfter: deleteRequeueAfter}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 	log.Info("EKS cluster has no dependencies")
 
@@ -279,9 +283,11 @@ func (r *AWSManagedControlPlaneReconciler) reconcileDelete(ctx context.Context, 
 		return reconcile.Result{}, err
 	}
 
-	if err := sgService.DeleteSecurityGroups(); err != nil {
-		log.Error(err, "error deleting general security groups for AWSManagedControlPlane", "namespace", controlPlane.Namespace, "name", controlPlane.Name)
-		return reconcile.Result{}, err
+	if conditions.GetReason(managedScope.InfraCluster(), infrav1.ClusterSecurityGroupsReadyCondition) != clusterv1.DeletedReason {
+		if err := sgService.DeleteSecurityGroups(); err != nil {
+			log.Error(err, "error deleting general security groups for AWSManagedControlPlane", "namespace", controlPlane.Namespace, "name", controlPlane.Name)
+			return reconcile.Result{}, err
+		}
 	}
 
 	if err := networkSvc.DeleteNetwork(); err != nil {

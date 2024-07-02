@@ -19,7 +19,6 @@ package awsnode
 import (
 	"context"
 	"fmt"
-
 	amazoncni "github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,6 +42,11 @@ const (
 // ReconcileCNI will reconcile the CNI of a service.
 func (s *Service) ReconcileCNI(ctx context.Context) error {
 	s.scope.Info("Reconciling aws-node DaemonSet in cluster", "cluster-name", s.scope.Name(), "cluster-namespace", s.scope.Namespace())
+
+	if s.client == nil {
+		s.scope.Info("Remote client not initialized, skipping CNI reconciliation", "cluster-name", s.scope.Name(), "cluster-namespace", s.scope.Namespace())
+		return fmt.Errorf("remote client to cluster not initialized, cannot reconcile CNI")
+	}
 
 	if s.scope.DisableVPCCNI() {
 		if err := s.deleteCNI(ctx); err != nil {
@@ -184,7 +188,6 @@ func (s *Service) filterEnv(env []corev1.EnvVar) []corev1.EnvVar {
 
 func (s *Service) deleteCNI(ctx context.Context) error {
 	s.scope.Info("Ensuring aws-node DaemonSet in cluster is deleted", "cluster-name", s.scope.Name(), "cluster-namespace", s.scope.Namespace())
-
 	ds := &appsv1.DaemonSet{}
 	if err := s.client.Get(ctx, types.NamespacedName{Namespace: awsNodeNamespace, Name: awsNodeName}, ds); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -194,7 +197,7 @@ func (s *Service) deleteCNI(ctx context.Context) error {
 		return fmt.Errorf("getting aws-node daemonset: %w", err)
 	}
 
-	s.scope.V(2).Info("The aws-node DaemonSet found, deleting")
+	s.scope.Info("The aws-node DaemonSet found, deleting")
 	if err := s.client.Delete(ctx, ds, &client.DeleteOptions{}); err != nil {
 		if apierrors.IsNotFound(err) {
 			s.scope.V(2).Info("The aws-node DaemonSet is not found, not deleted")

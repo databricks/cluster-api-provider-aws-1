@@ -105,7 +105,6 @@ type AWSManagedMachinePoolSpec struct {
 
 	// AMIType defines the AMI type
 	// +kubebuilder:validation:Enum:=AL2_x86_64;AL2_x86_64_GPU;AL2_ARM_64
-	// +kubebuilder:default:=AL2_x86_64
 	// +optional
 	AMIType *ManagedMachineAMIType `json:"amiType,omitempty"`
 
@@ -124,6 +123,11 @@ type AWSManagedMachinePoolSpec struct {
 	// InstanceType specifies the AWS instance type
 	// +optional
 	InstanceType *string `json:"instanceType,omitempty"`
+
+	// InstanceTypes specifies the AWS instance types
+	//only set InstanceType or InstanceTypes not both
+	// +optional
+	InstanceTypes []*string `json:"instanceTypes,omitempty"`
 
 	// Scaling specifies scaling for the ASG behind this pool
 	// +optional
@@ -144,6 +148,9 @@ type AWSManagedMachinePoolSpec struct {
 	// +kubebuilder:default:=onDemand
 	// +optional
 	CapacityType *ManagedMachinePoolCapacityType `json:"capacityType,omitempty"`
+
+	// +optional
+	AWSLaunchTemplate *AWSLaunchTemplate `json:"awsLaunchTemplate,omitempty"`
 }
 
 // ManagedMachinePoolScaling specifies scaling options.
@@ -175,6 +182,14 @@ type AWSManagedMachinePoolStatus struct {
 	// Replicas is the most recently observed number of replicas.
 	// +optional
 	Replicas int32 `json:"replicas"`
+
+	// The ID of the launch template
+	// +optional
+	LaunchTemplateID *string `json:"launchTemplateID,omitempty"`
+
+	// The version of the launch template
+	// +optional
+	LaunchTemplateVersion *string `json:"launchTemplateVersion,omitempty"`
 
 	// FailureReason will be set in the event that there is a terminal problem
 	// reconciling the MachinePool and will contain a succinct value suitable

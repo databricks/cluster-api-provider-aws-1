@@ -1102,6 +1102,14 @@ spec:
                   name:
                     description: The name of the launch template.
                     type: string
+                  odcrId:
+                    description: OdcrId indicates the ODCR (On-Demand Capacity Reservations)
+                      target ID.
+                    type: string
+                  rdma:
+                    description: RDMA is whether the launch template is for RDMA VM
+                      support.
+                    type: boolean
                   rootVolume:
                     description: RootVolume encapsulates the configuration options
                       for the root volume
@@ -1144,11 +1152,21 @@ spec:
                     required:
                     - size
                     type: object
+                  skipCoreSecurityGroups:
+                    type: boolean
                   sshKeyName:
                     description: SSHKeyName is the name of the ssh key to attach to
                       the instance. Valid values are empty string (do not use SSH
                       keys), a valid SSH key name, or omitted (use the default SSH
                       key name)
+                    type: string
+                  tenancy:
+                    description: Tenancy indicates if instance should run on shared
+                      or single-tenant hardware.
+                    enum:
+                    - default
+                    - dedicated
+                    - host
                     type: string
                   versionNumber:
                     description: 'VersionNumber is the version of the launch template

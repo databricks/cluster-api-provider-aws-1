@@ -25,6 +25,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -104,6 +105,7 @@ var (
 	webhookCertDir           string
 	healthAddr               string
 	serviceEndpoints         string
+	fipsEnabledRegions       string
 
 	errEKSInvalidFlags = errors.New("invalid EKS flag combination")
 )
@@ -163,6 +165,9 @@ func main() {
 
 	setupLog.V(1).Info(fmt.Sprintf("feature gates: %+v\n", feature.Gates))
 
+	// Parse and update FIPS enabled regions
+	scope.FipsRegions = strings.Split(fipsEnabledRegions, ",")
+	setupLog.V(1).Info(fmt.Sprintf("fips enabled for regions: %v", scope.FipsRegions))
 	// Parse service endpoints.
 	AWSServiceEndpoints, err := endpoints.ParseFlag(serviceEndpoints)
 	if err != nil {
@@ -291,8 +296,12 @@ func enableGates(ctx context.Context, mgr ctrl.Manager, awsServiceEndpoints []sc
 
 		enableIAM := feature.Gates.Enabled(feature.EKSEnableIAM)
 		allowAddRoles := feature.Gates.Enabled(feature.EKSAllowAddRoles)
+		allowUpdateLaunchTemplates := feature.Gates.Enabled(feature.EKSAllowUpdateLaunchTemplates)
+		allowRecreateNodeGroups := feature.Gates.Enabled(feature.EKSAllowRecreateNodeGroups)
 		setupLog.V(2).Info("EKS IAM role creation", "enabled", enableIAM)
 		setupLog.V(2).Info("EKS IAM additional roles", "enabled", allowAddRoles)
+		setupLog.V(2).Info("EKS launch template update", "enabled", allowUpdateLaunchTemplates)
+		setupLog.V(2).Info("EKS node group recreate", "enabled", allowRecreateNodeGroups)
 		if allowAddRoles && !enableIAM {
 			setupLog.Error(errEKSInvalidFlags, "cannot use EKSAllowAddRoles flag without EKSEnableIAM")
 			os.Exit(1)
@@ -335,12 +344,14 @@ func enableGates(ctx context.Context, mgr ctrl.Manager, awsServiceEndpoints []sc
 		if feature.Gates.Enabled(feature.MachinePool) {
 			setupLog.V(2).Info("enabling EKS managed machine pool controller")
 			if err := (&expcontrollers.AWSManagedMachinePoolReconciler{
-				AllowAdditionalRoles: allowAddRoles,
-				Client:               mgr.GetClient(),
-				EnableIAM:            enableIAM,
-				Endpoints:            awsServiceEndpoints,
-				Recorder:             mgr.GetEventRecorderFor("awsmanagedmachinepool-reconciler"),
-				WatchFilterValue:     watchFilterValue,
+				AllowAdditionalRoles: 		allowAddRoles,
+				AllowUpdateLaunchTemplates: allowUpdateLaunchTemplates,
+				AllowRecreateNodeGroups:    allowRecreateNodeGroups,
+				Client:               		mgr.GetClient(),
+				EnableIAM:            		enableIAM,
+				Endpoints:            		awsServiceEndpoints,
+				Recorder:             		mgr.GetEventRecorderFor("awsmanagedmachinepool-reconciler"),
+				WatchFilterValue:     		watchFilterValue,
 			}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: instanceStateConcurrency, RecoverPanic: true}); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "AWSManagedMachinePool")
 				os.Exit(1)
@@ -469,6 +480,12 @@ func initFlags(fs *pflag.FlagSet) {
 		"watch-filter",
 		"",
 		fmt.Sprintf("Label value that the controller watches to reconcile cluster-api objects. Label key is always %s. If unspecified, the controller watches for all cluster-api objects.", clusterv1.WatchLabel),
+	)
+
+	fs.StringVar(&fipsEnabledRegions,
+		"fips-regions",
+		"",
+		"Specify the regions for which FIPS endpoints should be used. Comma separated list of regions: {region-1},{region-2},...",
 	)
 
 	feature.MutableGates.AddFlag(fs)

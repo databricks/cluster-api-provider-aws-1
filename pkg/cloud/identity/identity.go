@@ -78,13 +78,15 @@ func GetAssumeRoleCredentials(roleIdentityProvider *AWSRolePrincipalTypeProvider
 }
 
 // NewAWSRolePrincipalTypeProvider will create a new AWSRolePrincipalTypeProvider from an AWSClusterRoleIdentity.
-func NewAWSRolePrincipalTypeProvider(identity *infrav1.AWSClusterRoleIdentity, sourceProvider *AWSPrincipalTypeProvider, log logr.Logger) *AWSRolePrincipalTypeProvider {
+func NewAWSRolePrincipalTypeProvider(identity *infrav1.AWSClusterRoleIdentity, sourceProvider *AWSPrincipalTypeProvider,
+	region string, log logr.Logger) *AWSRolePrincipalTypeProvider {
 	return &AWSRolePrincipalTypeProvider{
 		credentials:    nil,
 		stsClient:      nil,
 		Principal:      identity,
 		sourceProvider: sourceProvider,
 		log:            log.WithName("AWSRolePrincipalTypeProvider"),
+		Region:         &region,
 	}
 }
 
@@ -131,6 +133,7 @@ type AWSRolePrincipalTypeProvider struct {
 	sourceProvider *AWSPrincipalTypeProvider
 	log            logr.Logger
 	stsClient      stsiface.STSAPI
+	Region         *string
 }
 
 // Hash returns the byte encoded AWSRolePrincipalTypeProvider.
@@ -153,6 +156,9 @@ func (p *AWSRolePrincipalTypeProvider) Name() string {
 func (p *AWSRolePrincipalTypeProvider) Retrieve() (credentials.Value, error) {
 	if p.credentials == nil || p.IsExpired() {
 		awsConfig := aws.NewConfig()
+		if p.Region != nil {
+			awsConfig = awsConfig.WithRegion(*p.Region)
+		}
 		if p.sourceProvider != nil {
 			sourceCreds, err := (*p.sourceProvider).Retrieve()
 			if err != nil {

@@ -51,7 +51,9 @@ func (s *Service) reconcileAddons(ctx context.Context) error {
 
 	// Get the addons from the spec we want for the cluster
 	desiredAddons := s.translateAPIToAddon(s.scope.Addons())
-
+	for _, addon := range desiredAddons {
+		s.scope.V(2).Info("desired addon", "addon", addon, "cluster", eksClusterName)
+	}
 	// If there are no addons desired or installed then do nothing
 	if len(installed) == 0 && len(desiredAddons) == 0 {
 		s.scope.Info("no addons installed and no addons to install, no action needed")
@@ -191,7 +193,8 @@ func (s *Service) listAddons(eksClusterName string) ([]*string, error) {
 func (s *Service) translateAPIToAddon(addons []ekscontrolplanev1.Addon) []*eksaddons.EKSAddon {
 	converted := []*eksaddons.EKSAddon{}
 
-	for _, addon := range addons {
+	for i := range addons {
+		addon := addons[i]
 		convertedAddon := &eksaddons.EKSAddon{
 			Name:                  &addon.Name,
 			Version:               &addon.Version,

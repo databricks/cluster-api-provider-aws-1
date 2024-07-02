@@ -168,7 +168,18 @@ func (r *AWSManagedControlPlane) ValidateUpdate(old runtime.Object) error {
 func (r *AWSManagedControlPlane) ValidateDelete() error {
 	mcpLog.Info("AWSManagedControlPlane validate delete", "name", r.Name)
 
-	return nil
+	var allErrs field.ErrorList
+	if deletionAllowedErrs := r.validateDeleteAllowed(); len(deletionAllowedErrs) > 0 {
+		allErrs = append(allErrs, deletionAllowedErrs...)
+	}
+	if len(allErrs) == 0 {
+		return nil
+	}
+	return apierrors.NewInvalid(
+		r.GroupVersionKind().GroupKind(),
+		r.Name,
+		allErrs,
+	)
 }
 
 func (r *AWSManagedControlPlane) validateEKSClusterName() field.ErrorList {
@@ -321,6 +332,20 @@ func (r *AWSManagedControlPlane) validateDisableVPCCNI() field.ErrorList {
 
 	if len(allErrs) == 0 {
 		return nil
+	}
+	return allErrs
+}
+
+func (r *AWSManagedControlPlane) validateDeleteAllowed() field.ErrorList {
+	var allErrs field.ErrorList
+
+	if _, ok := r.GetAnnotations()[infrav1.PreventAccidentalDeletionAnnotation]; ok {
+		allErrs = append(allErrs,
+			field.Forbidden(
+				field.NewPath("metadata", "annotations"),
+				fmt.Sprintf("%s annotation must be removed before proceeding with deletion", infrav1.PreventAccidentalDeletionAnnotation),
+			),
+		)
 	}
 	return allErrs
 }

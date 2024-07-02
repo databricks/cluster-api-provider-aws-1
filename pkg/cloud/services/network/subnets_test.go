@@ -55,9 +55,15 @@ func TestReconcileSubnets(t *testing.T) {
 				Subnets: []infrav1.SubnetSpec{
 					{
 						ID: "subnet-1",
+						Tags: infrav1.Tags{
+							"subnet-tag": "subnet1",
+						},
 					},
 					{
 						ID: "subnet-2",
+						Tags: infrav1.Tags{
+							"subnet-tag": "subnet1",
+						},
 					},
 				},
 			},
@@ -128,6 +134,7 @@ func TestReconcileSubnets(t *testing.T) {
 					}),
 					gomock.Any()).Return(nil)
 
+				// Only the tags needed for load-balancer-controller should be added.
 				m.CreateTags(gomock.Eq(&ec2.CreateTagsInput{
 					Resources: aws.StringSlice([]string{"subnet-1"}),
 					Tags: []*ec2.Tag{
@@ -143,6 +150,7 @@ func TestReconcileSubnets(t *testing.T) {
 				})).
 					Return(&ec2.CreateTagsOutput{}, nil)
 
+				// Only the tags needed for load-balancer-controller should be added.
 				m.CreateTags(gomock.Eq(&ec2.CreateTagsInput{
 					Resources: aws.StringSlice([]string{"subnet-2"}),
 					Tags: []*ec2.Tag{
@@ -1736,6 +1744,491 @@ func TestDiscoverSubnets(t *testing.T) {
 			}
 			if len(out) > 0 {
 				t.Errorf("Got unexpected subnets: %+v", out)
+			}
+		})
+	}
+}
+
+func TestDeleteSubnets(t *testing.T) {
+	testCases := []struct {
+		name          string
+		input         *infrav1.NetworkSpec
+		expect        func(m *mock_ec2iface.MockEC2APIMockRecorder)
+		errorExpected bool
+	}{
+		{
+			name: "Unmanaged VPC, 2 existing subnets in vpc, 2 subnet in spec, subnets match, should cleanup shared tags",
+			input: &infrav1.NetworkSpec{
+				VPC: infrav1.VPCSpec{
+					ID: subnetsVPCID,
+				},
+				Subnets: []infrav1.SubnetSpec{
+					{
+						ID: "subnet-1",
+						Tags: infrav1.Tags{
+							"subnet-tag": "subnet1",
+						},
+					},
+					{
+						ID: "subnet-2",
+						Tags: infrav1.Tags{
+							"subnet-tag": "subnet1",
+						},
+					},
+				},
+			},
+			expect: func(m *mock_ec2iface.MockEC2APIMockRecorder) {
+				m.DescribeSubnets(gomock.Eq(&ec2.DescribeSubnetsInput{
+					Filters: []*ec2.Filter{
+						{
+							Name:   aws.String("state"),
+							Values: []*string{aws.String("pending"), aws.String("available")},
+						},
+						{
+							Name:   aws.String("vpc-id"),
+							Values: []*string{aws.String(subnetsVPCID)},
+						},
+					},
+				})).
+					Return(&ec2.DescribeSubnetsOutput{
+						Subnets: []*ec2.Subnet{
+							{
+								VpcId:               aws.String(subnetsVPCID),
+								SubnetId:            aws.String("subnet-1"),
+								AvailabilityZone:    aws.String("us-east-1a"),
+								CidrBlock:           aws.String("10.0.10.0/24"),
+								MapPublicIpOnLaunch: aws.Bool(false),
+								Tags: []*ec2.Tag{
+									{
+										Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+										Value: aws.String("shared"),
+									},
+								},
+							},
+							{
+								VpcId:               aws.String(subnetsVPCID),
+								SubnetId:            aws.String("subnet-2"),
+								AvailabilityZone:    aws.String("us-east-1a"),
+								CidrBlock:           aws.String("10.0.20.0/24"),
+								MapPublicIpOnLaunch: aws.Bool(false),
+								Tags: []*ec2.Tag{
+									{
+										Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+										Value: aws.String("shared"),
+									},
+								},
+							},
+						},
+					}, nil)
+
+				m.DescribeRouteTables(gomock.AssignableToTypeOf(&ec2.DescribeRouteTablesInput{})).
+					Return(&ec2.DescribeRouteTablesOutput{
+						RouteTables: []*ec2.RouteTable{
+							{
+								VpcId: aws.String(subnetsVPCID),
+								Associations: []*ec2.RouteTableAssociation{
+									{
+										SubnetId:     aws.String("subnet-1"),
+										RouteTableId: aws.String("rt-12345"),
+									},
+								},
+								Routes: []*ec2.Route{
+									{
+										GatewayId: aws.String("igw-12345"),
+									},
+								},
+							},
+						},
+					}, nil)
+
+				m.DescribeNatGatewaysPages(
+					gomock.Eq(&ec2.DescribeNatGatewaysInput{
+						Filter: []*ec2.Filter{
+							{
+								Name:   aws.String("vpc-id"),
+								Values: []*string{aws.String(subnetsVPCID)},
+							},
+							{
+								Name:   aws.String("state"),
+								Values: []*string{aws.String("pending"), aws.String("available")},
+							},
+						},
+					}),
+					gomock.Any()).Return(nil)
+
+				m.DeleteTags(gomock.Eq(&ec2.DeleteTagsInput{
+					Resources: aws.StringSlice([]string{"subnet-1"}),
+					Tags: []*ec2.Tag{
+						{
+							Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+							Value: aws.String("shared"),
+						},
+					},
+				})).
+					Return(&ec2.DeleteTagsOutput{}, nil)
+
+				m.DeleteTags(gomock.Eq(&ec2.DeleteTagsInput{
+					Resources: aws.StringSlice([]string{"subnet-2"}),
+					Tags: []*ec2.Tag{
+						{
+							Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+							Value: aws.String("shared"),
+						},
+					},
+				})).
+					Return(&ec2.DeleteTagsOutput{}, nil)
+			},
+		},
+		{
+			name: "Unmanaged VPC, 2 existing subnets in vpc, 2 subnet in spec, subnets match, should cleanup shared tags",
+			input: &infrav1.NetworkSpec{
+				VPC: infrav1.VPCSpec{
+					ID: subnetsVPCID,
+				},
+				Subnets: []infrav1.SubnetSpec{
+					{
+						ID: "subnet-1",
+						Tags: infrav1.Tags{
+							"subnet-tag": "subnet1",
+						},
+					},
+					{
+						ID: "subnet-2",
+						Tags: infrav1.Tags{
+							"subnet-tag": "subnet1",
+						},
+					},
+				},
+			},
+			expect: func(m *mock_ec2iface.MockEC2APIMockRecorder) {
+				m.DescribeSubnets(gomock.Eq(&ec2.DescribeSubnetsInput{
+					Filters: []*ec2.Filter{
+						{
+							Name:   aws.String("state"),
+							Values: []*string{aws.String("pending"), aws.String("available")},
+						},
+						{
+							Name:   aws.String("vpc-id"),
+							Values: []*string{aws.String(subnetsVPCID)},
+						},
+					},
+				})).
+					Return(&ec2.DescribeSubnetsOutput{
+						Subnets: []*ec2.Subnet{
+							{
+								VpcId:               aws.String(subnetsVPCID),
+								SubnetId:            aws.String("subnet-1"),
+								AvailabilityZone:    aws.String("us-east-1a"),
+								CidrBlock:           aws.String("10.0.10.0/24"),
+								MapPublicIpOnLaunch: aws.Bool(false),
+								Tags: []*ec2.Tag{
+									{
+										Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+										Value: aws.String("shared"),
+									},
+								},
+							},
+							{
+								VpcId:               aws.String(subnetsVPCID),
+								SubnetId:            aws.String("subnet-2"),
+								AvailabilityZone:    aws.String("us-east-1a"),
+								CidrBlock:           aws.String("10.0.20.0/24"),
+								MapPublicIpOnLaunch: aws.Bool(false),
+								Tags: []*ec2.Tag{
+									{
+										Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+										Value: aws.String("shared"),
+									},
+								},
+							},
+						},
+					}, nil)
+
+				m.DescribeRouteTables(gomock.AssignableToTypeOf(&ec2.DescribeRouteTablesInput{})).
+					Return(&ec2.DescribeRouteTablesOutput{
+						RouteTables: []*ec2.RouteTable{
+							{
+								VpcId: aws.String(subnetsVPCID),
+								Associations: []*ec2.RouteTableAssociation{
+									{
+										SubnetId:     aws.String("subnet-1"),
+										RouteTableId: aws.String("rt-12345"),
+									},
+								},
+								Routes: []*ec2.Route{
+									{
+										GatewayId: aws.String("igw-12345"),
+									},
+								},
+							},
+						},
+					}, nil)
+
+				m.DescribeNatGatewaysPages(
+					gomock.Eq(&ec2.DescribeNatGatewaysInput{
+						Filter: []*ec2.Filter{
+							{
+								Name:   aws.String("vpc-id"),
+								Values: []*string{aws.String(subnetsVPCID)},
+							},
+							{
+								Name:   aws.String("state"),
+								Values: []*string{aws.String("pending"), aws.String("available")},
+							},
+						},
+					}),
+					gomock.Any()).Return(nil)
+
+				m.DeleteTags(gomock.Eq(&ec2.DeleteTagsInput{
+					Resources: aws.StringSlice([]string{"subnet-1"}),
+					Tags: []*ec2.Tag{
+						{
+							Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+							Value: aws.String("shared"),
+						},
+					},
+				})).
+					Return(&ec2.DeleteTagsOutput{}, nil)
+
+				m.DeleteTags(gomock.Eq(&ec2.DeleteTagsInput{
+					Resources: aws.StringSlice([]string{"subnet-2"}),
+					Tags: []*ec2.Tag{
+						{
+							Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+							Value: aws.String("shared"),
+						},
+					},
+				})).
+					Return(&ec2.DeleteTagsOutput{}, nil)
+			},
+		},
+		{
+			name: "Unmanaged VPC, 2 existing subnets, one subnet has tag, should be cleaned up",
+			input: &infrav1.NetworkSpec{
+				VPC: infrav1.VPCSpec{
+					ID: subnetsVPCID,
+				},
+				Subnets: []infrav1.SubnetSpec{
+					{
+						ID: "subnet-1",
+					},
+					{
+						ID: "subnet-2",
+					},
+				},
+			},
+			expect: func(m *mock_ec2iface.MockEC2APIMockRecorder) {
+				m.DescribeSubnets(gomock.Eq(&ec2.DescribeSubnetsInput{
+					Filters: []*ec2.Filter{
+						{
+							Name:   aws.String("state"),
+							Values: []*string{aws.String("pending"), aws.String("available")},
+						},
+						{
+							Name:   aws.String("vpc-id"),
+							Values: []*string{aws.String(subnetsVPCID)},
+						},
+					},
+				})).
+					Return(&ec2.DescribeSubnetsOutput{
+						Subnets: []*ec2.Subnet{
+							{
+								VpcId:               aws.String(subnetsVPCID),
+								SubnetId:            aws.String("subnet-1"),
+								AvailabilityZone:    aws.String("us-east-1a"),
+								CidrBlock:           aws.String("10.0.10.0/24"),
+								MapPublicIpOnLaunch: aws.Bool(false),
+								Tags: []*ec2.Tag{
+									{
+										Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+										Value: aws.String("shared"),
+									},
+								},
+							},
+							{
+								VpcId:               aws.String(subnetsVPCID),
+								SubnetId:            aws.String("subnet-2"),
+								AvailabilityZone:    aws.String("us-east-1a"),
+								CidrBlock:           aws.String("10.0.20.0/24"),
+								MapPublicIpOnLaunch: aws.Bool(false),
+							},
+						},
+					}, nil)
+
+				m.DescribeRouteTables(gomock.AssignableToTypeOf(&ec2.DescribeRouteTablesInput{})).
+					Return(&ec2.DescribeRouteTablesOutput{
+						RouteTables: []*ec2.RouteTable{
+							{
+								VpcId: aws.String(subnetsVPCID),
+								Associations: []*ec2.RouteTableAssociation{
+									{
+										SubnetId:     aws.String("subnet-1"),
+										RouteTableId: aws.String("rt-12345"),
+									},
+								},
+								Routes: []*ec2.Route{
+									{
+										GatewayId: aws.String("igw-12345"),
+									},
+								},
+							},
+						},
+					}, nil)
+
+				m.DescribeNatGatewaysPages(
+					gomock.Eq(&ec2.DescribeNatGatewaysInput{
+						Filter: []*ec2.Filter{
+							{
+								Name:   aws.String("vpc-id"),
+								Values: []*string{aws.String(subnetsVPCID)},
+							},
+							{
+								Name:   aws.String("state"),
+								Values: []*string{aws.String("pending"), aws.String("available")},
+							},
+						},
+					}),
+					gomock.Any()).Return(nil)
+
+				m.DeleteTags(gomock.Eq(&ec2.DeleteTagsInput{
+					Resources: aws.StringSlice([]string{"subnet-1"}),
+					Tags: []*ec2.Tag{
+						{
+							Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+							Value: aws.String("shared"),
+						},
+					},
+				})).
+					Return(&ec2.DeleteTagsOutput{}, nil)
+			},
+		},
+		{
+			name: "Managed VPC, existing public subnet, 2 subnets in spec, should delete 1 subnet",
+			input: &infrav1.NetworkSpec{
+				VPC: infrav1.VPCSpec{
+					ID: subnetsVPCID,
+					Tags: infrav1.Tags{
+						infrav1.ClusterTagKey("test-cluster"): "owned",
+					},
+				},
+				Subnets: []infrav1.SubnetSpec{
+					{
+						ID:               "subnet-1",
+						AvailabilityZone: "us-east-1a",
+						CidrBlock:        "10.0.0.0/17",
+						IsPublic:         true,
+					},
+					{
+						AvailabilityZone: "us-east-1a",
+						CidrBlock:        "10.0.128.0/17",
+						IsPublic:         false,
+					},
+				},
+			},
+			expect: func(m *mock_ec2iface.MockEC2APIMockRecorder) {
+				m.DescribeSubnets(gomock.Eq(&ec2.DescribeSubnetsInput{
+					Filters: []*ec2.Filter{
+						{
+							Name:   aws.String("state"),
+							Values: []*string{aws.String("pending"), aws.String("available")},
+						},
+						{
+							Name:   aws.String("vpc-id"),
+							Values: []*string{aws.String(subnetsVPCID)},
+						},
+					},
+				})).
+					Return(&ec2.DescribeSubnetsOutput{
+						Subnets: []*ec2.Subnet{
+							{
+								VpcId:            aws.String(subnetsVPCID),
+								SubnetId:         aws.String("subnet-1"),
+								AvailabilityZone: aws.String("us-east-1a"),
+								CidrBlock:        aws.String("10.0.0.0/17"),
+								Tags: []*ec2.Tag{
+									{
+										Key:   aws.String("sigs.k8s.io/cluster-api-provider-aws/cluster/test-cluster"),
+										Value: aws.String("owned"),
+									},
+									{
+										Key:   aws.String("sigs.k8s.io/cluster-api-provider-aws/role"),
+										Value: aws.String("public"),
+									},
+									{
+										Key:   aws.String("Name"),
+										Value: aws.String("test-cluster-subnet-public"),
+									},
+									{
+										Key:   aws.String("kubernetes.io/cluster/test-cluster"),
+										Value: aws.String("shared"),
+									},
+								},
+							},
+						},
+					}, nil)
+
+				m.DescribeRouteTables(gomock.AssignableToTypeOf(&ec2.DescribeRouteTablesInput{})).
+					Return(&ec2.DescribeRouteTablesOutput{}, nil)
+
+				m.DescribeNatGatewaysPages(
+					gomock.Eq(&ec2.DescribeNatGatewaysInput{
+						Filter: []*ec2.Filter{
+							{
+								Name:   aws.String("vpc-id"),
+								Values: []*string{aws.String(subnetsVPCID)},
+							},
+							{
+								Name:   aws.String("state"),
+								Values: []*string{aws.String("pending"), aws.String("available")},
+							},
+						},
+					}),
+					gomock.Any()).Return(nil)
+
+				m.DeleteSubnet(gomock.Eq(&ec2.DeleteSubnetInput{
+					SubnetId: aws.String("subnet-1"),
+				})).
+					Return(&ec2.DeleteSubnetOutput{}, nil)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			ec2Mock := mock_ec2iface.NewMockEC2API(mockCtrl)
+
+			scheme := runtime.NewScheme()
+			_ = infrav1.AddToScheme(scheme)
+			client := fake.NewClientBuilder().WithScheme(scheme).Build()
+			scope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+				Client: client,
+				Cluster: &clusterv1.Cluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
+				},
+				AWSCluster: &infrav1.AWSCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "test"},
+					Spec: infrav1.AWSClusterSpec{
+						NetworkSpec: *tc.input,
+					},
+				},
+			})
+			if err != nil {
+				t.Fatalf("Failed to create test context: %v", err)
+			}
+
+			tc.expect(ec2Mock.EXPECT())
+
+			s := NewService(scope)
+			s.EC2Client = ec2Mock
+			err = s.deleteSubnets()
+
+			if tc.errorExpected && err == nil {
+				t.Fatal("expected error deleting but not no error")
+			}
+			if !tc.errorExpected && err != nil {
+				t.Fatalf("got an unexpected error: %v", err)
 			}
 		})
 	}

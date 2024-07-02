@@ -49,9 +49,39 @@ const (
 	EKSNodegroupReadyCondition clusterv1.ConditionType = "EKSNodegroupReady"
 	// EKSNodegroupReconciliationFailedReason used to report failures while reconciling EKS control plane.
 	EKSNodegroupReconciliationFailedReason = "EKSNodegroupReconciliationFailed"
+	// EKSNodegroupStatusNotReadyReason used to report failures when node group is not ready.
+	EKSNodegroupStatusNotReadyReason = "EKSNodegroupStatusNotReady"
+	// EKSNodegroupInsufficientCapacityReason used to report failures when node group has insufficient capacity.
+	EKSNodegroupInsufficientCapacityReason = "EKSNodegroupInsufficientCapacity"
+	// EKSNodegroupInvalidAMIReason used to report failures when node group has invalid AMI.
+	EKSNodegroupInvalidAMIReason = "EKSNodegroupInvalidAMI"
+	// EKSNodegroupReservationCapacityExceededReason used to report failures when node group has exceeded reservation capacity.
+	EKSNodegroupReservationCapacityExceededReason = "EKSNodegroupReservationCapacityExceeded"
+	// EKSNodegroupUnhealthyInstanceesReason used to report failures when node group has unhealthy instances.
+	EKSNodegroupUnhealthyInstanceesReason = "EKSNodegroupUnhealthyInstancees"
+	// EKSNodegroupLaunchTemplateNotFoundReason used to report failures when node group has invalid launch template.
+	EKSNodegroupLaunchTemplateNotFoundReason = "EKSNodegroupLaunchTemplateNotFound"
+	// EKSNodegroupUnsupportedInstanceTypeReason used to report failures when node group has unsupported instance type.
+	EKSNodegroupUnsupportedInstanceTypeReason = "EKSNodegroupUnsupportedInstanceType"
+	// EKSNodegroupInstanceScaleInProtectionEnabledReason used to report failures when node group has instance scale in protection enabled.
+	EKSNodegroupInstanceScaleInProtectionEnabledReason = "EKSNodegroupInstanceScaleInProtectionEnabled"
+	// EKSNodegroupVcpuLimitExceededReason used to report failures when node group has vCPU limit exceeded.
+	EKSNodegroupVcpuLimitExceededReason = "EKSNodegroupVcpuLimitExceeded"
+	// EKSNodegroupAsgInstanceLaunchFailureReason used to report failures when node group has ASG instance launch failure.
+	EKSNodegroupAsgInstanceLaunchFailureReason = "EKSNodegroupAsgInstanceLaunchFailure"
+	// EKSNodegroupAsgInvalidConfigurationReason used to report failures when node group has ASG invalid configuration.
+	EKSNodegroupAsgInvalidConfigurationReason = "EKSNodegroupAsgInvalidConfiguration"
+	// EKSNodegroupInsufficientFreeAddressesReason used to report failures when node group has insufficient free addresses.
+	EKSNodegroupInsufficientFreeAddressesReason = "EKSNodegroupInsufficientFreeAddresses"
+	// EKSNodegroupClusterUnreachableReason used to report failures when node group is unreachable.
+	EKSNodegroupClusterUnreachableReason = "EKSNodegroupClusterUnreachable"
 	// WaitingForEKSControlPlaneReason used when the machine pool is waiting for
 	// EKS control plane infrastructure to be ready before proceeding.
 	WaitingForEKSControlPlaneReason = "WaitingForEKSControlPlane"
+	// EKSNodegroupInitializingReason used when the nodegroup is initializing.
+	EKSNodegroupInitializingReason = "EKSNodegroupInitializing"
+	// EKSNodegroupRecreatingReason used when the nodegroup is recreating to fix a recoverable creation failure.
+	EKSNodegroupRecreatingReason = "EKSNodegroupRecreating"
 )
 
 const (

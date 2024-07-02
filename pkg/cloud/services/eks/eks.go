@@ -18,6 +18,7 @@ package eks
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/service/eks"
 
 	"github.com/pkg/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -89,7 +90,7 @@ func (s *Service) DeleteControlPlane() (err error) {
 }
 
 // ReconcilePool is the entrypoint for ManagedMachinePool reconciliation.
-func (s *NodegroupService) ReconcilePool() error {
+func (s *NodegroupService) ReconcilePool() (shouldRequeue bool, err error) {
 	s.scope.V(2).Info("Reconciling EKS nodegroup")
 
 	if err := s.reconcileNodegroupIAMRole(); err != nil {
@@ -100,11 +101,12 @@ func (s *NodegroupService) ReconcilePool() error {
 			clusterv1.ConditionSeverityError,
 			err.Error(),
 		)
-		return err
+		return false, err
 	}
 	conditions.MarkTrue(s.scope.ManagedMachinePool, expinfrav1.IAMNodegroupRolesReadyCondition)
 
-	if err := s.reconcileNodegroup(); err != nil {
+	shouldRequeue, err = s.reconcileNodegroup()
+	if err != nil {
 		conditions.MarkFalse(
 			s.scope.ManagedMachinePool,
 			expinfrav1.EKSNodegroupReadyCondition,
@@ -112,41 +114,54 @@ func (s *NodegroupService) ReconcilePool() error {
 			clusterv1.ConditionSeverityError,
 			err.Error(),
 		)
-		return err
 	}
-	conditions.MarkTrue(s.scope.ManagedMachinePool, expinfrav1.EKSNodegroupReadyCondition)
+	if s.scope.ManagedMachinePool.Status.Ready {
+		conditions.MarkTrue(s.scope.ManagedMachinePool, expinfrav1.EKSNodegroupReadyCondition)
+	} else {
+		conditions.MarkFalse(
+			s.scope.ManagedMachinePool,
+			expinfrav1.EKSNodegroupReadyCondition,
+			string(*s.scope.ManagedMachinePool.Status.FailureReason),
+			clusterv1.ConditionSeverityError,
+			*s.scope.ManagedMachinePool.Status.FailureMessage,
+		)
+	}
 
-	return nil
+	return shouldRequeue, nil
 }
 
 // ReconcilePoolDelete is the entrypoint for ManagedMachinePool deletion
 // reconciliation.
-func (s *NodegroupService) ReconcilePoolDelete() error {
+func (s *NodegroupService) ReconcilePoolDelete() (shouldRequeue bool, err error) {
 	s.scope.V(2).Info("Reconciling deletion of EKS nodegroup")
 
 	eksNodegroupName := s.scope.NodegroupName()
+	nodeGroupDeleted := false
 
 	ng, err := s.describeNodegroup()
 	if err != nil {
 		if awserrors.IsNotFound(err) {
 			s.scope.V(4).Info("EKS nodegroup does not exist")
-			return nil
+			nodeGroupDeleted = true
 		}
-		return errors.Wrap(err, "failed to describe EKS nodegroup")
+		return false, errors.Wrap(err, "failed to describe EKS nodegroup")
 	}
 	if ng == nil {
-		return nil
+		nodeGroupDeleted = true
+	} else if *ng.Status == eks.NodegroupStatusDeleting {
+		return true, nil
 	}
 
-	if err := s.deleteNodegroupAndWait(); err != nil {
-		return errors.Wrap(err, "failed to delete nodegroup")
+	if !nodeGroupDeleted {
+		if err := s.deleteNodegroup(false); err != nil {
+			return false, errors.Wrap(err, "failed to delete nodegroup")
+		}
+		return true, nil
+	} else {
+		if err := s.deleteNodegroupIAMRole(); err != nil {
+			return false, errors.Wrap(err, "failed to delete nodegroup IAM role")
+		}
+		record.Eventf(s.scope.ManagedMachinePool, "SuccessfulDeleteEKSNodegroup", "Deleted EKS nodegroup %s", eksNodegroupName)
+		return false, nil
 	}
-
-	if err := s.deleteNodegroupIAMRole(); err != nil {
-		return errors.Wrap(err, "failed to delete nodegroup IAM role")
-	}
-
-	record.Eventf(s.scope.ManagedMachinePool, "SuccessfulDeleteEKSNodegroup", "Deleted EKS nodegroup %s", eksNodegroupName)
-
-	return nil
 }
