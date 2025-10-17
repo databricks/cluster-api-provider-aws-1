@@ -241,20 +241,45 @@ func (s *Service) getDefaultSubnets() (infrav1.Subnets, error) {
 }
 
 func (s *Service) deleteSubnets() error {
-	if s.scope.VPC().IsUnmanaged(s.scope.Name()) {
-		s.scope.V(4).Info("Skipping subnets deletion in unmanaged mode")
-		return nil
-	}
 
 	// Describe subnets in the vpc.
 	existing, err := s.describeVpcSubnets()
 	if err != nil {
 		return err
 	}
+	if s.scope.VPC().IsUnmanaged(s.scope.Name()) {
+		s.scope.V(4).Info("Unmanaged VPC, not deleting subnets. Clearing the shared tag.")
+		for _, sn := range existing {
+			value, ok := sn.Tags[infrav1.ClusterAWSCloudProviderTagKey(s.scope.Name())]
+			if !ok || infrav1.ResourceLifecycle(value) != infrav1.ResourceLifecycleShared {
+				continue
+			}
+			if err := wait.WaitForWithRetryable(wait.NewBackoff(), func() (bool, error) {
+				// Create the DeleteTags input to delete the cluster shared tag.
+				input := &ec2.DeleteTagsInput{
+					Resources: aws.StringSlice([]string{sn.ID}),
+					Tags:      converters.MapToTags(infrav1.Tags{infrav1.ClusterAWSCloudProviderTagKey(s.scope.Name()): string(infrav1.ResourceLifecycleShared)}),
+				}
 
-	for _, sn := range existing {
-		if err := s.deleteSubnet(sn.ID); err != nil {
-			return err
+				// Delete tags in AWS.
+				if _, err := s.EC2Client.DeleteTags(input); err != nil {
+					return false, errors.Wrapf(err, "failed to delete cluster shared tag for subnet %s", sn.ID)
+				}
+
+				return true, nil
+			}, awserrors.SubnetNotFound); err != nil {
+				record.Warnf(s.scope.InfraCluster(), "FailedTagSubnet", "Failed removing tags from managed Subnet %q: %v", sn.ID, err)
+				return errors.Wrapf(err, "failed to clear shared tags on subnet %q", sn.ID)
+			}
+		}
+
+		return nil
+	} else {
+		s.scope.V(4).Info("Managed VPC, deleting subnets")
+		for _, sn := range existing {
+			if err := s.deleteSubnet(sn.ID); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -406,7 +431,10 @@ func (s *Service) deleteSubnet(id string) error {
 
 func (s *Service) getSubnetTagParams(unmanagedVPC bool, id string, public bool, zone string, manualTags infrav1.Tags) infrav1.BuildParams {
 	var role string
-	additionalTags := s.scope.AdditionalTags()
+	additionalTags := infrav1.Tags{}
+	if !unmanagedVPC {
+		additionalTags = s.scope.AdditionalTags()
+	}
 
 	if public {
 		role = infrav1.PublicRoleTagValue
@@ -417,13 +445,14 @@ func (s *Service) getSubnetTagParams(unmanagedVPC bool, id string, public bool, 
 	}
 
 	// Add tag needed for Service type=LoadBalancer
+	// See https://repost.aws/knowledge-center/eks-vpc-subnet-discovery
 	additionalTags[infrav1.NameKubernetesAWSCloudProviderPrefix+s.scope.Name()] = string(infrav1.ResourceLifecycleShared)
 
-	for k, v := range manualTags {
-		additionalTags[k] = v
-	}
-
 	if !unmanagedVPC {
+		for k, v := range manualTags {
+			additionalTags[k] = v
+		}
+
 		var name strings.Builder
 		name.WriteString(s.scope.Name())
 		name.WriteString("-subnet-")

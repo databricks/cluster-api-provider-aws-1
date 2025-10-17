@@ -583,3 +583,40 @@ func TestValidatingWebhookUpdate_SecondaryCidr(t *testing.T) {
 		})
 	}
 }
+
+func TestWebhookDelete(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          *AWSManagedControlPlane
+		expectError bool
+	}{
+		{
+			name: "deletion prevention annotation set",
+			in: &AWSManagedControlPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						infrav1.PreventAccidentalDeletionAnnotation: "true",
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name:        "empty control plane",
+			in:          &AWSManagedControlPlane{},
+			expectError: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			err := tc.in.ValidateDelete()
+			if tc.expectError {
+				g.Expect(err).ToNot(BeNil())
+			} else {
+				g.Expect(err).To(BeNil())
+			}
+		})
+	}
+}

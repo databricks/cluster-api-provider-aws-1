@@ -16,7 +16,9 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-eng-protected-runner-group
+      labels: linux-ubuntu-latest
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2

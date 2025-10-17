@@ -19,6 +19,7 @@ package scope
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
@@ -55,7 +56,11 @@ import (
 
 // NewASGClient creates a new ASG API client for a given session.
 func NewASGClient(scopeUser cloud.ScopeUsage, session cloud.Session, logger logr.Logger, target runtime.Object) autoscalingiface.AutoScalingAPI {
-	asgClient := autoscaling.New(session.Session(), aws.NewConfig().WithLogLevel(awslogs.GetAWSLogLevel(logger)).WithLogger(awslogs.NewWrapLogr(logger)))
+	config := aws.NewConfig().WithLogLevel(awslogs.GetAWSLogLevel(logger)).WithLogger(awslogs.NewWrapLogr(logger))
+	// Autoscaling does not support FIPS. Disable it explicitly so the endpoint resolver doesn't fallback to the partition
+	// default which will use autoscaling-fips.{region}.amazonaws.com.
+	config.UseFIPSEndpoint = endpoints.FIPSEndpointStateDisabled
+	asgClient := autoscaling.New(session.Session(), config)
 	asgClient.Handlers.Build.PushFrontNamed(getUserAgentHandler())
 	asgClient.Handlers.CompleteAttempt.PushFront(awsmetrics.CaptureRequestMetrics(scopeUser.ControllerName()))
 	asgClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))

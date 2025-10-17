@@ -47,9 +47,15 @@ type Service struct {
 
 // NewService will create a new service.
 func NewService(awsnodeScope Scope) *Service {
-	client, _ := awsnodeScope.RemoteClient()
+	c, err := awsnodeScope.RemoteClient()
+	if err != nil {
+		return &Service{
+			scope:  awsnodeScope,
+			client: nil,
+		}
+	}
 	return &Service{
 		scope:  awsnodeScope,
-		client: client,
+		client: c,
 	}
 }

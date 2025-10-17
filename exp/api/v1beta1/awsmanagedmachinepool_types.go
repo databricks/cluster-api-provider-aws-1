@@ -28,6 +28,13 @@ import (
 )
 
 const (
+	// AnnotationStagedUpdatePaused is the annotation of type boolean used to specify whether a DKC cluster is paused by staged update
+	AnnotationStagedUpdatePaused = "staged-update/paused"
+	// AnnotationPaused is the annotation of type boolean used to pause reconciliation for a DKC cluster.
+	AnnotationPaused = "cluster.x-k8s.io/paused"
+)
+
+const (
 	// ManagedMachinePoolFinalizer allows the controller to clean up resources on delete.
 	ManagedMachinePoolFinalizer = "awsmanagedmachinepools.infrastructure.cluster.x-k8s.io"
 )
@@ -41,7 +48,9 @@ const (
 	// Al2x86_64GPU is the x86-64 GPU AMI type.
 	Al2x86_64GPU ManagedMachineAMIType = "AL2_x86_64_GPU"
 	// Al2Arm64 is the Arm AMI type.
-	Al2Arm64 ManagedMachineAMIType = "AL2_ARM_64"
+	Al2Arm64              ManagedMachineAMIType = "AL2_ARM_64"
+	BottlerocketX8664Fips ManagedMachineAMIType = "BOTTLEROCKET_x86_64_FIPS"
+	BottlerocketArm64Fips ManagedMachineAMIType = "BOTTLEROCKET_ARM_64_FIPS"
 )
 
 // ManagedMachinePoolCapacityType specifies the capacity type to be used for the managed MachinePool.
@@ -105,7 +114,6 @@ type AWSManagedMachinePoolSpec struct {
 
 	// AMIType defines the AMI type
 	// +kubebuilder:validation:Enum:=AL2_x86_64;AL2_x86_64_GPU;AL2_ARM_64
-	// +kubebuilder:default:=AL2_x86_64
 	// +optional
 	AMIType *ManagedMachineAMIType `json:"amiType,omitempty"`
 
@@ -124,6 +132,11 @@ type AWSManagedMachinePoolSpec struct {
 	// InstanceType specifies the AWS instance type
 	// +optional
 	InstanceType *string `json:"instanceType,omitempty"`
+
+	// InstanceTypes specifies the AWS instance types
+	//only set InstanceType or InstanceTypes not both
+	// +optional
+	InstanceTypes []*string `json:"instanceTypes,omitempty"`
 
 	// Scaling specifies scaling for the ASG behind this pool
 	// +optional
@@ -144,6 +157,9 @@ type AWSManagedMachinePoolSpec struct {
 	// +kubebuilder:default:=onDemand
 	// +optional
 	CapacityType *ManagedMachinePoolCapacityType `json:"capacityType,omitempty"`
+
+	// +optional
+	AWSLaunchTemplate *AWSLaunchTemplate `json:"awsLaunchTemplate,omitempty"`
 }
 
 // ManagedMachinePoolScaling specifies scaling options.
@@ -175,6 +191,14 @@ type AWSManagedMachinePoolStatus struct {
 	// Replicas is the most recently observed number of replicas.
 	// +optional
 	Replicas int32 `json:"replicas"`
+
+	// The ID of the launch template
+	// +optional
+	LaunchTemplateID *string `json:"launchTemplateID,omitempty"`
+
+	// The version of the launch template
+	// +optional
+	LaunchTemplateVersion *string `json:"launchTemplateVersion,omitempty"`
 
 	// FailureReason will be set in the event that there is a terminal problem
 	// reconciling the MachinePool and will contain a succinct value suitable

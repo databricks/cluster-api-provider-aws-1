@@ -293,12 +293,12 @@ func TestService_LaunchTemplateNeedsUpdate(t *testing.T) {
 					AWSCluster: ac,
 				},
 			}
-			machinePoolScope := &scope.MachinePoolScope{
+			launchTemplateScope := &scope.LaunchTemplateScope{
 				InfraCluster: &scope.ClusterScope{
 					AWSCluster: ac,
 				},
 			}
-			got, err := s.LaunchTemplateNeedsUpdate(machinePoolScope, tt.incoming, tt.existing)
+			got, err := s.LaunchTemplateNeedsUpdate(launchTemplateScope, tt.incoming, tt.existing)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error mismatch: got = %v, wantErr %v", err, tt.wantErr)
 				return

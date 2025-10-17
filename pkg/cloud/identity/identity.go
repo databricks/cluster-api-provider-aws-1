@@ -73,18 +73,28 @@ func GetAssumeRoleCredentials(roleIdentityProvider *AWSRolePrincipalTypeProvider
 		if roleIdentityProvider.stsClient != nil {
 			p.Client = roleIdentityProvider.stsClient
 		}
+
+		// We want the credentials to always be valid for 15 minutes after they are used (the max time that the pre-signed URL is valid for)
+		// If the duration is less than or equal to 15 minutes (the minimum duration for AssumeRole), we relax the expiry window to 10 minutes
+		// to avoid excessive Assueme Role calls.
+		p.ExpiryWindow = time.Minute * 15
+		if roleIdentityProvider.Principal.Spec.DurationSeconds <= 900 {
+			p.ExpiryWindow = time.Minute * 10
+		}
 	})
 	return creds
 }
 
 // NewAWSRolePrincipalTypeProvider will create a new AWSRolePrincipalTypeProvider from an AWSClusterRoleIdentity.
-func NewAWSRolePrincipalTypeProvider(identity *infrav1.AWSClusterRoleIdentity, sourceProvider *AWSPrincipalTypeProvider, log logr.Logger) *AWSRolePrincipalTypeProvider {
+func NewAWSRolePrincipalTypeProvider(identity *infrav1.AWSClusterRoleIdentity, sourceProvider *AWSPrincipalTypeProvider,
+	region string, log logr.Logger) *AWSRolePrincipalTypeProvider {
 	return &AWSRolePrincipalTypeProvider{
 		credentials:    nil,
 		stsClient:      nil,
 		Principal:      identity,
 		sourceProvider: sourceProvider,
 		log:            log.WithName("AWSRolePrincipalTypeProvider"),
+		Region:         &region,
 	}
 }
 
@@ -131,6 +141,7 @@ type AWSRolePrincipalTypeProvider struct {
 	sourceProvider *AWSPrincipalTypeProvider
 	log            logr.Logger
 	stsClient      stsiface.STSAPI
+	Region         *string
 }
 
 // Hash returns the byte encoded AWSRolePrincipalTypeProvider.
@@ -153,6 +164,9 @@ func (p *AWSRolePrincipalTypeProvider) Name() string {
 func (p *AWSRolePrincipalTypeProvider) Retrieve() (credentials.Value, error) {
 	if p.credentials == nil || p.IsExpired() {
 		awsConfig := aws.NewConfig()
+		if p.Region != nil {
+			awsConfig = awsConfig.WithRegion(*p.Region)
+		}
 		if p.sourceProvider != nil {
 			sourceCreds, err := (*p.sourceProvider).Retrieve()
 			if err != nil {

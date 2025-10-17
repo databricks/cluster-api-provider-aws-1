@@ -89,6 +89,7 @@ type AWSLaunchTemplate struct {
 	ImageLookupBaseOS string `json:"imageLookupBaseOS,omitempty"`
 
 	// InstanceType is the type of instance to create. Example: m4.xlarge
+	// +optional
 	InstanceType string `json:"instanceType,omitempty"`
 
 	// RootVolume encapsulates the configuration options for the root volume
@@ -107,11 +108,28 @@ type AWSLaunchTemplate struct {
 	// 3) A new AMI is discovered.
 	VersionNumber *int64 `json:"versionNumber,omitempty"`
 
+	// +optional
+	SkipCoreSecurityGroups *bool `json:"skipCoreSecurityGroups,omitempty"`
+
 	// AdditionalSecurityGroups is an array of references to security groups that should be applied to the
 	// instances. These security groups would be set in addition to any security groups defined
 	// at the cluster level or in the actuator.
 	// +optional
 	AdditionalSecurityGroups []infrav1.AWSResourceReference `json:"additionalSecurityGroups,omitempty"`
+
+	// Tenancy indicates if instance should run on shared or single-tenant hardware.
+	// +kubebuilder:validation:Enum=default;dedicated;host
+	// +optional
+	Tenancy *string `json:"tenancy,omitempty"`
+
+	// OdcrId indicates the ODCR (On-Demand Capacity Reservations) target ID.
+	// +optional
+	OdcrId *string `json:"odcrId,omitempty"`
+
+	// RDMA is whether the launch template is for RDMA VM support.
+	// TODO: This is Databricks specific, move to generic ec2 interface later.
+	// +optional
+	Rdma *bool `json:"rdma,omitempty"`
 }
 
 // Overrides are used to override the instance type specified by the launch template with multiple

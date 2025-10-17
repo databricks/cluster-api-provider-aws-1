@@ -106,7 +106,7 @@ func (p *defaultSubnetPlacementStrategy) getSubnetsForAZs(azs []string, controlP
 	subnetIDs := []string{}
 
 	for _, zone := range azs {
-		subnets := controlPlaneSubnets.FilterByZone(zone)
+		subnets := controlPlaneSubnets.FilterPrivate().FilterByZone(zone)
 		if len(subnets) == 0 {
 			return nil, fmt.Errorf("getting subnets for availability zone %s: %w", zone, ErrAZSubnetsNotFound)
 		}

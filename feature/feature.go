@@ -43,6 +43,21 @@ const (
 	// alpha: v0.4
 	EKSAllowAddRoles featuregate.Feature = "EKSAllowAddRoles"
 
+	// EKSAllowUpdateLaunchTemplates is used to enable update of launch templates
+	// owner: @richardchen-db
+	// alpha: v0.4
+	EKSAllowUpdateLaunchTemplates featuregate.Feature = "EKSAllowUpdateLaunchTemplates"
+
+	// EKSAllowRecreateNodeGroups is used to enable the recreation of node groups in case of CREATE_FAILED status
+	// owner: @richardchen-db
+	// beta: v1.0
+	EKSAllowRecreateNodeGroups featuregate.Feature = "EKSAllowRecreateNodeGroups"
+
+	// EKSUsePerAccountRateLimiter is used to enable the per-account bucket rate limiter.
+	// owner: @karthikbalasub
+	// beta: v1.0
+	EKSUsePerAccountRateLimiter featuregate.Feature = "EKSUsePerAccountRateLimiter"
+
 	// EKSFargate is used to enable the usage of EKS fargate profiles
 	// owner: @richardcase
 	// alpha: v0.4
@@ -75,6 +90,9 @@ var defaultCAPAFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
 	EKS:                           {Default: true, PreRelease: featuregate.Beta},
 	EKSEnableIAM:                  {Default: false, PreRelease: featuregate.Beta},
 	EKSAllowAddRoles:              {Default: false, PreRelease: featuregate.Beta},
+	EKSAllowUpdateLaunchTemplates: {Default: false, PreRelease: featuregate.Beta},
+	EKSAllowRecreateNodeGroups:    {Default: false, PreRelease: featuregate.Beta},
+	EKSUsePerAccountRateLimiter:   {Default: false, PreRelease: featuregate.Beta},
 	EKSFargate:                    {Default: false, PreRelease: featuregate.Alpha},
 	EventBridgeInstanceState:      {Default: false, PreRelease: featuregate.Alpha},
 	MachinePool:                   {Default: false, PreRelease: featuregate.Alpha},
